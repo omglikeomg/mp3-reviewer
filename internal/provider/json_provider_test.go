@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -139,5 +140,130 @@ func TestGetTasks_MalformedJSON(t *testing.T) {
 	}
 	if tasks != nil {
 		t.Errorf("expected nil tasks on error, got %v", tasks)
+	}
+}
+
+func TestSaveState_UpdatesAppliedEntries(t *testing.T) {
+	const sampleJSON = `{
+		"manual_review": [
+			{
+				"filepath": "Cream/Cream - Strange Brew.mp3",
+				"reason": "Genre not in taxonomy",
+				"confidence": 4
+			},
+			{
+				"filepath": "Miles Davis/Kind of Blue.mp3",
+				"reason": "Uncertain subgenre",
+				"confidence": 2
+			}
+		]
+	}`
+
+	dir := t.TempDir()
+	jsonPath := filepath.Join(dir, "manual_review.json")
+	if err := os.WriteFile(jsonPath, []byte(sampleJSON), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	musicFolder := "/test/music"
+	cfg := domain.AppConfig{
+		MusicFolder: musicFolder,
+		JsonPath:    jsonPath,
+	}
+	p := ManualReviewProvider{Config: cfg}
+
+	tasks := []domain.Task{
+		{
+			FilePath: filepath.Join(musicFolder, "Cream/Cream - Strange Brew.mp3"),
+			Genre1:   "Rock",
+			Genre2:   "Blues-Rock",
+		},
+		// Miles Davis intentionally left un-tagged (Genre1 == "").
+		{
+			FilePath: filepath.Join(musicFolder, "Miles Davis/Kind of Blue.mp3"),
+			Genre1:   "",
+		},
+	}
+
+	if err := p.SaveState(tasks); err != nil {
+		t.Fatalf("SaveState() returned unexpected error: %v", err)
+	}
+
+	// Re-read and verify.
+	data, _ := os.ReadFile(jsonPath)
+	var raw struct {
+		ManualReview []struct {
+			FilePath       string `json:"filepath"`
+			Status         string `json:"status"`
+			PrimaryGenre   string `json:"primary_genre"`
+			SecondaryGenre string `json:"secondary_genre"`
+		} `json:"manual_review"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("re-parsing saved JSON: %v", err)
+	}
+
+	if raw.ManualReview[0].Status != "applied" {
+		t.Errorf("entry[0].status = %q, want %q", raw.ManualReview[0].Status, "applied")
+	}
+	if raw.ManualReview[0].PrimaryGenre != "Rock" {
+		t.Errorf("entry[0].primary_genre = %q, want %q", raw.ManualReview[0].PrimaryGenre, "Rock")
+	}
+	if raw.ManualReview[0].SecondaryGenre != "Blues-Rock" {
+		t.Errorf("entry[0].secondary_genre = %q, want %q", raw.ManualReview[0].SecondaryGenre, "Blues-Rock")
+	}
+
+	// The un-tagged Miles Davis entry must be unchanged.
+	if raw.ManualReview[1].Status != "" {
+		t.Errorf("entry[1].status = %q, want empty (untagged)", raw.ManualReview[1].Status)
+	}
+}
+
+func TestSaveState_NoneSecondaryGenre(t *testing.T) {
+	const sampleJSON = `{
+		"manual_review": [
+			{
+				"filepath": "Cream/Cream - Strange Brew.mp3",
+				"reason": "Genre not in taxonomy",
+				"confidence": 4
+			}
+		]
+	}`
+
+	dir := t.TempDir()
+	jsonPath := filepath.Join(dir, "manual_review.json")
+	if err := os.WriteFile(jsonPath, []byte(sampleJSON), 0644); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	cfg := domain.AppConfig{
+		MusicFolder: "/test/music",
+		JsonPath:    jsonPath,
+	}
+	p := ManualReviewProvider{Config: cfg}
+
+	tasks := []domain.Task{
+		{
+			FilePath: filepath.Join("/test/music", "Cream/Cream - Strange Brew.mp3"),
+			Genre1:   "Rock",
+			Genre2:   "", // [NONE] chosen — secondary should be omitted from JSON.
+		},
+	}
+
+	if err := p.SaveState(tasks); err != nil {
+		t.Fatalf("SaveState() unexpected error: %v", err)
+	}
+
+	data, _ := os.ReadFile(jsonPath)
+	var raw struct {
+		ManualReview []struct {
+			SecondaryGenre string `json:"secondary_genre"`
+		} `json:"manual_review"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("re-parsing saved JSON: %v", err)
+	}
+	if raw.ManualReview[0].SecondaryGenre != "" {
+		t.Errorf("secondary_genre = %q, want empty string (omitempty)", raw.ManualReview[0].SecondaryGenre)
 	}
 }

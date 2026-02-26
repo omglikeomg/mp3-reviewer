@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"song-reviewer/internal/domain"
 )
@@ -21,10 +22,14 @@ type manualReviewFile struct {
 }
 
 // reviewEntry mirrors a single item in the "manual_review" array.
+// Fields added in Task 4: Status, PrimaryGenre, SecondaryGenre.
 type reviewEntry struct {
-	FilePath   string `json:"filepath"`
-	Reason     string `json:"reason"`
-	Confidence int    `json:"confidence"`
+	FilePath       string `json:"filepath"`
+	Reason         string `json:"reason"`
+	Confidence     int    `json:"confidence"`
+	Status         string `json:"status,omitempty"`
+	PrimaryGenre   string `json:"primary_genre,omitempty"`
+	SecondaryGenre string `json:"secondary_genre,omitempty"`
 }
 
 // ManualReviewProvider reads a JSON file containing a "manual_review" array
@@ -52,9 +57,85 @@ func (p ManualReviewProvider) GetTasks() ([]domain.Task, error) {
 	for _, entry := range raw.ManualReview {
 		task := domain.Task{
 			FilePath: filepath.Join(p.Config.MusicFolder, entry.FilePath),
+			Genre1:   entry.PrimaryGenre,
+			Genre2:   entry.SecondaryGenre,
 		}
 		tasks = append(tasks, task)
 	}
 
 	return tasks, nil
+}
+
+// SaveState persists genre assignments back into the source JSON file on disk.
+// For each task in the provided slice, if Genre1 is non-empty the corresponding
+// JSON entry is updated with status="applied", primary_genre, and secondary_genre.
+// Matching is done by relative filepath (task path with MusicFolder prefix stripped).
+//
+// The write is done atomically: the file is first written to a temp file in the
+// same directory, then renamed over the original. This prevents data loss if the
+// process is killed mid-write.
+func (p ManualReviewProvider) SaveState(tasks []domain.Task) error {
+	// Read current file content.
+	data, err := os.ReadFile(p.Config.JsonPath)
+	if err != nil {
+		return fmt.Errorf("provider: SaveState reading %q: %w", p.Config.JsonPath, err)
+	}
+
+	var raw manualReviewFile
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("provider: SaveState parsing %q: %w", p.Config.JsonPath, err)
+	}
+
+	// Build a lookup: relative filepath -> task
+	taskMap := make(map[string]domain.Task, len(tasks))
+	for _, t := range tasks {
+		// Derive the relative path by stripping the music folder prefix.
+		rel := t.FilePath
+		if strings.HasPrefix(rel, p.Config.MusicFolder) {
+			rel = strings.TrimPrefix(rel, p.Config.MusicFolder)
+			rel = strings.TrimPrefix(rel, string(filepath.Separator))
+		}
+		taskMap[rel] = t
+	}
+
+	// Update matching entries in the raw struct.
+	for i, entry := range raw.ManualReview {
+		t, ok := taskMap[entry.FilePath]
+		if !ok || t.Genre1 == "" {
+			continue
+		}
+		raw.ManualReview[i].Status = "applied"
+		raw.ManualReview[i].PrimaryGenre = t.Genre1
+		raw.ManualReview[i].SecondaryGenre = t.Genre2
+	}
+
+	// Marshal back to JSON with indentation for human readability.
+	out, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return fmt.Errorf("provider: SaveState marshalling: %w", err)
+	}
+
+	// Atomic write via temp file + rename.
+	dir := filepath.Dir(p.Config.JsonPath)
+	tmp, err := os.CreateTemp(dir, "manual_review_*.json.tmp")
+	if err != nil {
+		return fmt.Errorf("provider: SaveState creating temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(out); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("provider: SaveState writing temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("provider: SaveState closing temp file: %w", err)
+	}
+	if err := os.Rename(tmpName, p.Config.JsonPath); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("provider: SaveState renaming temp file: %w", err)
+	}
+
+	return nil
 }

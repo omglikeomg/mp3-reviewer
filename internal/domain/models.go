@@ -14,10 +14,11 @@ type Task struct {
 
 // AppConfig holds the application-wide configuration loaded from settings.json.
 type AppConfig struct {
-	MusicFolder string   `json:"music_folder"`
-	JsonPath    string   `json:"review_json_path"`
-	GenreList   []string `json:"genres"`
-	ApiKeys     struct {
+	MusicFolder      string   `json:"music_folder"`
+	JsonPath         string   `json:"review_json_path"`
+	GenreList        []string `json:"genres"`
+	SeekDeltaSeconds int      `json:"seek_delta_seconds"` // Seek step for ← / → keys. Defaults to 30 if 0 or omitted.
+	ApiKeys          struct {
 		MusicBrainzUserAgent string `json:"musicbrainz_user_agent"`
 	} `json:"api_keys"`
 }
