@@ -1,0 +1,9 @@
+{
+  "manual_review": [
+    {
+      "filepath": "Cream/Cream - Strange Brew.mp3",
+      "reason": "Genre not in taxonomy",
+      "confidence": 4
+    }
+  ]
+}

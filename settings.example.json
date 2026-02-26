@@ -1,0 +1,11 @@
+{
+  "music_folder": "/Users/username/Music",
+  "review_json_path": "./data/manual_review.json",
+  "genres": [
+    "Rock", "Jazz", "Blues", "Electronic", "Hip-Hop", 
+    "Classical", "Folk", "Psych-Rock", "Techno", "House"
+  ],
+  "api_keys": {
+    "musicbrainz_user_agent": "MySongReviewer/1.0.0 ( contact@example.com )"
+  }
+}

@@ -1,0 +1,53 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+song-reviewer
+
+# Go test & profiling
+*.test
+*.out
+*.prof
+coverage.html
+
+# Go module cache (vendored deps if used)
+vendor/
+
+# IDE & editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Audio files (don't commit music into the repo)
+*.mp3
+*.flac
+*.wav
+*.ogg
+*.m4a
+*.aac
+*.wma
+
+# User-specific configuration (contains local paths)
+config/settings.json
+
+# Review data (generated/user-specific)
+data/manual_review.json
+
+# OS junk
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Relevant json config files
+settings.json
+manual_review.json
