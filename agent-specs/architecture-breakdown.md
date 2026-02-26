@@ -3,7 +3,7 @@
 ## Folder Structure
 - `/cmd/reviewer`: Entry point. Initializes the Bubble Tea program.
 - `/internal/domain`: Pure data structures (Task, Config). No dependencies.
-- `/internal/provider`: Implementation of JSON parsers (Adapters).
+- `/internal/provider`: Defines the `TaskProvider` interface (`GetTasks() ([]Task, error)`) and implements `ManualReviewProvider`, which parses the `manual_review` JSON schema and resolves file paths against `MusicFolder`.
 - `/internal/audio`: Wrapper for the `beep` library. Handles the audio device state.
 - `/internal/tui`: Bubble Tea components (Model, Update, View).
 - `/internal/metadata`: ID3 tag read/write logic using pure Go libraries.
@@ -14,7 +14,7 @@
    - **Model:** Holds the current song index, audio position, and menu state.
    - **Update:** Handles messages (keypresses, clock ticks, API responses).
    - **View:** Pure string rendering. No logic allowed here.
-2. **Adapter Pattern:** The `provider` package must use an interface to allow the app to read different JSON schemas (e.g., `manual_review` vs. a simple file list) without changing the TUI code.
+2. **Adapter Pattern:** The `provider` package exposes a `TaskProvider` interface (`GetTasks() ([]domain.Task, error)`). The concrete implementation `ManualReviewProvider` parses the `manual_review` JSON schema. New schemas (e.g., a flat file list) can be added by implementing the same interface without touching any TUI code.
 3. **Concurrency:** Audio playback and API fetching must run in background goroutines to prevent UI freezing. Use `tea.Cmd` to communicate results back to the TUI.
 
 ## Technology Stack

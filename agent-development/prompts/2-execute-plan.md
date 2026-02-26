@@ -4,59 +4,32 @@
 
 ---
 
-Familiarize yourself with the project context by reading all documents in [@agent-specs](agent-specs):
+Read and execute the approved plan at **→ `<PLAN_FILE>`**
 
-- `agent-specs/agent-instructions.md`
-- `agent-specs/application-overview.md`
-- `agent-specs/architecture-breakdown.md`
+## Before Starting
 
-Also read the development workflow guide:
+- Check the **"Open Questions & Decisions"** section in the plan. If any question still says `PENDING`, **STOP** and report which questions are unresolved. Do not execute a plan with pending decisions.
+- Treat resolved human decisions as **binding requirements** — they override the agent's original recommendation.
 
-- `agent-development/DEVELOPMENT-GUIDE.md`
+## While Executing
 
-Then, read the following approved implementation plan:
+- Follow the plan exactly. Do not add features, refactor code, or make architectural decisions that aren't in the plan.
+- Execute steps in order. Run all verification checks listed in the plan.
+- If a verification fails, fix the issue and retry (max 2 attempts per check). If it still fails, report the failure clearly and continue with the remaining steps.
 
-**→ `<PLAN_FILE>`**
+## After All Steps Pass
 
-Execute every step in the plan. Follow it precisely — the plan has already been reviewed and approved by the project owner.
+Perform these file moves:
 
-## Pre-Execution: Verify Open Questions Are Resolved
-
-Before writing any code, locate the **"Open Questions & Decisions"** section in the plan.
-
-1. **If the section says "None"** — proceed to execution.
-2. **If there are questions listed**, check that **every** question has its `Human decision:` field filled in (i.e., it no longer says `PENDING`). The human answers these during the approval process before moving the plan to `queued/`.
-3. **If any question still says `PENDING`** — **STOP. Do NOT execute the plan.** Report which questions are unresolved and ask the user to answer them first. A plan with unresolved questions should not be in `queued/`.
-
-When questions are resolved, treat the human's decisions as **binding requirements** — they override the agent's original recommendation. Incorporate those decisions into your implementation wherever relevant.
-
-## Rules
-
-1. **Read all `agent-specs/` documents first** — they contain coding standards, design patterns, and constraints you must follow.
-2. **Read the plan in full before writing any code** — understand the complete scope before starting.
-3. **Execute steps in order** — the plan's steps are sequenced intentionally. Do not skip ahead or reorder.
-4. **Follow the plan exactly** — do not add features, refactor existing code, or make architectural decisions that aren't in the plan. If something seems wrong or missing, flag it but still follow the plan as written.
-5. **Respect human decisions** — if the "Open Questions & Decisions" section contains resolved questions, follow the human's chosen option exactly, even if the agent's original recommendation differed.
-6. **Run all verification checks** — the plan includes verification commands and checklists. Run every single one and confirm they pass before finishing.
-7. **If a verification fails**, fix the issue and re-run the check. Make at most 2 attempts per check; if it still fails, report the failure clearly.
-
-## Post-Execution Housekeeping
-
-After all steps are complete and all verifications pass, perform these file moves:
-
-1. **Move the plan to done:** Move the executed plan file from `agent-development/queued/` to `agent-development/done/plans/`.
-2. **Move the request to done:** Find the corresponding request file in `agent-development/pending/` (the plan references it — match by task number) and move it to `agent-development/done/requests/`.
-
-For example, if you executed `agent-development/queued/0-initialization-plan.md`, then:
-- Move `agent-development/queued/0-initialization-plan.md` → `agent-development/done/plans/0-initialization-plan.md`
-- Move `agent-development/pending/0-initialization.md` → `agent-development/done/requests/0-initialization.md`
+1. **Move the plan:** `agent-development/queued/<plan-file>` → `agent-development/done/plans/<plan-file>`
+2. **Move the matching request:** `agent-development/pending/<N>-<name>.md` → `agent-development/done/requests/<N>-<name>.md` (match by task number referenced in the plan)
 
 ## Final Report
 
-Once everything is done, provide a short summary:
+Provide a short summary:
 
-- ✅ List of steps completed
-- 🔑 Open Questions — list each resolved question and the human's decision that was applied
-- ⚠️ Any warnings or issues encountered (even if resolved)
+- ✅ Steps completed
+- 🔑 Open questions — list each resolved question and the human decision that was applied
+- ⚠️ Warnings or issues encountered (even if resolved)
 - 📁 Files created or modified
 - 🔀 Files moved (plan and request)
