@@ -58,6 +58,51 @@ Before starting, the implementing agent **must** read and internalize these file
 
 ---
 
+## Open Questions & Decisions
+
+<!--
+This section is MANDATORY. It captures questions, ambiguities, or design decisions that the planning agent cannot resolve on its own and that require human input before the plan can be executed.
+
+During the APPROVAL PROCESS, the human reviewer will:
+1. Read each question below.
+2. Write their answer or decision inline (replacing the placeholder).
+3. Once all questions are resolved, move the plan from `plans/` to `queued/`.
+
+If there are genuinely no open questions, write "None — this plan is fully self-contained." and explain briefly why no decisions were needed.
+-->
+
+### Q1: <Short question title>
+
+**Context:** <!-- Why this question matters. What are the trade-offs? What did the planning agent consider? -->
+
+**Options:**
+- **A)** <!-- Option description -->
+- **B)** <!-- Option description -->
+
+**Agent's recommendation:** <!-- Which option the agent leans toward and why, or "No recommendation — this is a pure preference call." -->
+
+**Human decision:** `PENDING` <!-- The human replaces PENDING with their chosen option and any additional notes -->
+
+---
+
+### Q2: <Short question title>
+
+**Context:** <!-- ... -->
+
+**Options:**
+- **A)** <!-- ... -->
+- **B)** <!-- ... -->
+
+**Agent's recommendation:** <!-- ... -->
+
+**Human decision:** `PENDING`
+
+---
+
+<!-- Add as many questions as needed. Remove unused Q slots. -->
+
+---
+
 ## File Manifest
 
 Summary of every file created or modified in this task:

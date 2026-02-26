@@ -10,6 +10,10 @@ Familiarize yourself with the project context by reading all documents in [@agen
 - `agent-specs/application-overview.md`
 - `agent-specs/architecture-breakdown.md`
 
+Also read the development workflow guide:
+
+- `agent-development/DEVELOPMENT-GUIDE.md`
+
 Then, read the following task request:
 
 **→ `<TASK_FILE>`**
@@ -26,3 +30,14 @@ Using the request and the context you gathered, create a **detailed implementati
 6. **Name the plan file** using the pattern `N-short-name-plan.md` where `N` matches the task number from the request filename (e.g., task `0-initialization.md` → plan `0-initialization-plan.md`).
 7. **Save the plan** in `agent-development/plans/`.
 8. **Do NOT implement any code.** This prompt is only for planning.
+
+## Open Questions & Decisions (IMPORTANT)
+
+The plan template includes an **"Open Questions & Decisions"** section. You **must** populate this section thoughtfully:
+
+- **Surface any ambiguity** — if the task request is vague about a design choice, API contract, naming convention, data format, or trade-off, write it up as a question.
+- **Present options** — for each question, list the realistic options with pros/cons.
+- **Give a recommendation** — state which option you'd choose and why, but mark the human decision as `PENDING`.
+- **If there are genuinely no open questions**, write "None — this plan is fully self-contained." and briefly explain why.
+
+The human will review this section during the **approval process**. They will answer each question, and only then move the plan from `plans/` → `queued/` for execution. Do NOT assume answers to open questions — leave them for the human.
