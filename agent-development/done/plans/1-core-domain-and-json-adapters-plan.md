@@ -533,7 +533,7 @@ Expected: the file path is printed with no error.
 
 **Agent's recommendation:** **A** — Adding the `ApiKeys` nested struct now is low cost (4 extra lines), prevents a later plan from having to modify the same struct, and ensures `go vet` / `json.Unmarshal` behaves predictably against the real settings file from day one. A partial config struct that silently drops known fields is a maintenance hazard.
 
-**Human decision:** `PENDING`
+**Human decision:** Let's add the ApiKeys to AppConfig. Option A.
 
 ---
 
@@ -547,7 +547,7 @@ Expected: the file path is printed with no error.
 
 **Agent's recommendation:** **A** — Keep everything in `models.go` for now. Go's convention is to split files when content justifies it, not preemptively. If `ReviewQueue` gains methods in a later task, that task's plan can split the file at that point. Premature splitting adds navigational overhead for no current gain.
 
-**Human decision:** `PENDING`
+**Human decision:** Let's avoid splitting, let's do option A.
 
 ---
 
@@ -561,7 +561,7 @@ Expected: the file path is printed with no error.
 
 **Agent's recommendation:** **A** — Empty is not an error. The provider's job is to parse and map; business-logic decisions about what to do with an empty queue belong in the TUI layer. The test plan above already tests for this case with option A behavior.
 
-**Human decision:** `PENDING`
+**Human decision:** Let's do option A: empty is not an error, the UI will have to display a special message saying there's no pending work.
 
 ---
 
@@ -575,7 +575,7 @@ Expected: the file path is printed with no error.
 
 **Agent's recommendation:** **A** (`float64`) — since `confidence` is only parsed to avoid a JSON decode error and is then discarded, robustness beats precision. This prevents a future breakage if the upstream script ever writes `3.5`.
 
-**Human decision:** `PENDING`
+**Human decision:** Option B: I control this manual_review.json file and can vouch it will always be integer numbers.
 
 ---
 

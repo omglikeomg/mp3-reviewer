@@ -10,10 +10,6 @@ Familiarize yourself with the project context by reading all documents in [@agen
 - `agent-specs/application-overview.md`
 - `agent-specs/architecture-breakdown.md`
 
-Also read the development workflow guide:
-
-- `agent-development/DEVELOPMENT-GUIDE.md`
-
 Then, review the existing task requests to understand the current scope and numbering:
 
 - List all files in `agent-development/pending/`

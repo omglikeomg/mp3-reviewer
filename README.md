@@ -21,7 +21,7 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 cmd/reviewer/       — Entry point. Initializes the Bubble Tea program.
 internal/domain/    — Pure data structures (Task, Config). No dependencies.
 internal/provider/  — JSON parser adapters (TaskProvider interface).
-internal/audio/     — Wrapper for the beep library (playback, seeking, device).
+internal/audio/     — Audio engine (Engine struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown.
 internal/tui/       — Bubble Tea components (Model, Update, View).
 internal/metadata/  — ID3 tag read/write logic (pure Go).
 internal/api/       — External HTTP clients (MusicBrainz, BPM APIs).
@@ -122,6 +122,7 @@ Launch the reviewer:
 | Key | Action |
 |---|---|
 | `←` / `→` | Seek backward / forward 30 seconds |
+| `p` | Pause / Resume playback |
 | `Enter` / `Space` | Open genre selection menu |
 | `Esc` | Skip current song and move to next |
 | `Ctrl+U` | Undo last genre assignment |
