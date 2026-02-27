@@ -15,7 +15,6 @@ Before starting, the implementing agent **must** read and internalize these file
 | Application Overview | `agent-development/agent-specs/application-overview.md` | Understand what the tool does |
 | Architecture Breakdown | `agent-development/agent-specs/architecture-breakdown.md` | Understand folder structure, design patterns, tech stack |
 | Agent Instructions | `agent-development/agent-specs/agent-instructions.md` | Coding standards, dos/don'ts, workflow |
-| Diagrams | `diagrams/data-structures.mmd`, `diagrams/software-architecture.mmd`, `diagrams/ui-state-machine.mmd`, `diagrams/task-lifecycle.mmd`, `diagrams/component-data-flow.mmd` | Visual reference for architecture, data model, UI states, task lifecycle, and component data flow |
 | Folder Structure | `diagrams/FOLDER-STRUCTURE.md` | Quick-reference project directory tree and package dependency graph |
 | Task Definition | `agent-development/pending/<N>-<name>.md` | The task being implemented |
 <!-- Add any other relevant reference files (existing source files, previous plans, etc.) -->
@@ -128,7 +127,7 @@ The implementing agent must verify each item before marking this task as done:
 - [ ] No unrelated files were modified or deleted
 - [ ] `agent-development/agent-specs/architecture-breakdown.md` updated if new packages or interfaces were introduced
 - [ ] `README.md` updated if user-facing behavior changed
-- [ ] Relevant diagrams in `diagrams/` updated to reflect changes made in this task
+- [ ] Relevant diagrams in `diagrams/` updated to reflect changes made in this task (documentation for human readers)
 
 ---
 
@@ -139,6 +138,6 @@ The implementing agent must verify each item before marking this task as done:
 <!-- - Edge cases to be aware of -->
 <!-- - Explanations of non-obvious design decisions -->
 
-1. Consult diagrams before source code. Only read source if diagram-based confidence is below 9/10.
+1. The source code is the source of truth — read it directly. Diagrams in `diagrams/` are visual documentation for human readers and may lag behind the code; do not rely on them for implementation decisions.
 2. Note 1
 3. Note 2

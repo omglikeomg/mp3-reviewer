@@ -40,8 +40,8 @@ mp3-reviewer/
 ├── data/
 │   └── manual_review.json          ← Review queue data (gitignored — copy from manual_review.example.json)
 │
-├── diagrams/                        ← Mermaid diagrams — primary agent knowledge base
-│   ├── README.md                    ← Diagram conventions, diagram-first rule, maintenance rule
+├── diagrams/                        ← Mermaid diagrams — visual documentation for humans
+│   ├── README.md                    ← Diagram conventions and maintenance rule
 │   ├── FOLDER-STRUCTURE.md          ← You are here
 │   ├── data-structures.mmd          ← classDiagram: all domain/config/provider/audio/TUI types
 │   ├── software-architecture.mmd    ← flowchart: packages, dependencies, call flows
@@ -59,7 +59,7 @@ mp3-reviewer/
 │
 ├── agent-development/               ← Agent-only pipeline (specs, requests, plans)
 │   ├── agent-specs/                 ← Project-level specifications (read-only context)
-│   │   ├── agent-instructions.md    ← Coding standards, dos/don'ts, workflow, diagram-first rules
+│   │   ├── agent-instructions.md    ← Coding standards, dos/don'ts, workflow
 │   │   ├── application-overview.md  ← What the app does, core workflows, UX goals
 │   │   └── architecture-breakdown.md ← Folder structure, design patterns, tech stack
 │   ├── pending/                     ← Task requests waiting to be planned

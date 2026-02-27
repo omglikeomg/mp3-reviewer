@@ -28,8 +28,8 @@ internal/api/               — External HTTP clients (MusicBrainz, BPM APIs).
 data/                       — Holds the manual_review.json queue file.
 config/                     — Holds settings.json with app configuration.
 
-diagrams/                   — Mermaid diagrams & references: the primary knowledge base for agents.
-├── README.md               — Diagram conventions, diagram-first rule, maintenance rule.
+diagrams/                   — Mermaid diagrams & references: visual documentation for humans.
+├── README.md               — Diagram conventions and maintenance rule.
 ├── FOLDER-STRUCTURE.md     — Complete project directory tree and package dependency graph.
 ├── data-structures.mmd     — Class diagram of all domain types, fields, and relationships.
 ├── software-architecture.mmd — Packages, structs, interfaces, public methods, and call relationships.
@@ -54,7 +54,7 @@ agent-development/          — Agent-facing pipeline (specs, requests, plans).
 
 ### Diagrams
 
-The `diagrams/` directory contains Mermaid (`.mmd`) diagrams and reference documents that serve as the primary knowledge base for AI agents working on this project. Agents consult these diagrams **before** reading source code to build understanding of the system's data structures, software architecture, UI state machine, task lifecycle, and component data flow. See `diagrams/README.md` for conventions and the diagram-first rule, and `diagrams/FOLDER-STRUCTURE.md` for a quick-orientation project tree.
+The `diagrams/` directory contains Mermaid (`.mmd`) diagrams and reference documents that provide visual documentation of the system's data structures, software architecture, UI state machine, task lifecycle, and component data flow. These are maintained for human readers who prefer a visual overview. The source code is the source of truth — agents read code directly and update diagrams as documentation deliverables. See `diagrams/README.md` for conventions and `diagrams/FOLDER-STRUCTURE.md` for a quick-orientation project tree.
 
 ### Design Patterns
 

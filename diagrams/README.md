@@ -1,19 +1,16 @@
-# Diagrams — Agent Knowledge Base
+# Diagrams — Visual Documentation
 
 ## Purpose
 
-Diagrams are the **primary knowledge base for agents**. Before reading source code, agents must consult the diagrams in this directory to build understanding of the system. These Mermaid diagrams capture the canonical structure, relationships, and behavior of the Song Reviewer CLI at a level of detail sufficient for most planning and implementation tasks.
+Diagrams are **visual documentation for humans**. They provide a high-level overview of the system's architecture, data model, state machine, and data flow in a format that is easier to scan than source code. They are maintained alongside the code so that project contributors (human and AI) can quickly orient themselves.
 
-## Diagram-First Rule
+**The source code is the source of truth.** When a diagram and the code disagree, the code wins. Agents should read source code directly to understand the system — diagrams are a supplementary reference, not a prerequisite.
 
-When beginning any task (planning or execution), agents must:
+## Role of Diagrams for Agents
 
-1. **Read all relevant diagrams** in this directory.
-2. **Self-assess understanding** of the relevant area on a scale of **1–10**.
-3. **If confidence is 9 or above** — proceed with the task using diagram knowledge alone.
-4. **If confidence is below 9** — go to the source code for the specific areas of uncertainty, then re-assess.
-
-The goal is to minimize unnecessary source-code reading. Diagrams should provide enough context for most tasks. If they don't, that's a signal the diagrams need to be improved as part of the current task.
+- **Do NOT treat diagrams as a source of truth.** They may lag behind the code.
+- **Do NOT read diagrams before source code.** Read the code first; consult diagrams only if you want a bird's-eye view or need to understand a cross-cutting concern visually.
+- **Do update diagrams after making code changes.** Diagram updates are a documentation deliverable — part of keeping the project well-documented for human readers.
 
 ## Files
 
@@ -31,11 +28,11 @@ The goal is to minimize unnecessary source-code reading. Diagrams should provide
 
 | File | Format | What It Covers |
 |---|---|---|
-| `FOLDER-STRUCTURE.md` | Markdown | Complete project directory tree, package dependency graph, and key conventions. A quick-orientation reference so agents can navigate the codebase without scanning the filesystem. |
+| `FOLDER-STRUCTURE.md` | Markdown | Complete project directory tree, package dependency graph, and key conventions. A quick-orientation reference for navigating the codebase. |
 
 ## Maintenance Rule
 
-**Every task (plan or execution) must create or update diagrams as appropriate.** Diagrams are living documents that evolve with the code. Specifically:
+**Every task that changes the code should update affected diagrams as part of its documentation deliverables.** Diagrams are living documents that evolve with the code. Specifically:
 
 - If you **add a new struct, interface, or type** → update `data-structures.mmd`.
 - If you **add a new package, public function, or change inter-package dependencies** → update `software-architecture.mmd`.
@@ -44,7 +41,7 @@ The goal is to minimize unnecessary source-code reading. Diagrams should provide
 - If you **change how data flows through the MVU pipeline** (new Cmds, new Msgs, new component interactions, new refresh cycles) → update `component-data-flow.mmd`.
 - If you **add or remove top-level directories, packages, or significant files** → update `FOLDER-STRUCTURE.md`.
 
-Diagram updates are **mandatory deliverables** — they are as important as code changes.
+Diagram updates are part of documentation — not blockers for code changes. If a diagram is wrong or stale, fix it when you notice it, or as part of the current task.
 
 ## Format
 

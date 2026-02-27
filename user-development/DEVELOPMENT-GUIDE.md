@@ -68,8 +68,8 @@ agent-development/                  ← Agent-only pipeline (requests, plans, ex
     ├── plans/                      ← Executed plans (archive)
     └── requests/                   ← Fulfilled requests (archive)
 
-diagrams/                           ← Mermaid diagrams — primary agent knowledge base
-├── README.md                       ← Diagram conventions and rules
+diagrams/                           ← Mermaid diagrams — visual documentation for humans
+├── README.md                       ← Diagram conventions and maintenance rule
 ├── FOLDER-STRUCTURE.md             ← Quick-reference project directory tree & package deps
 ├── data-structures.mmd             ← Class diagram of all domain/config/provider types
 ├── software-architecture.mmd       ← Package structure, interfaces, call relationships
@@ -82,7 +82,7 @@ diagrams/                           ← Mermaid diagrams — primary agent knowl
 
 ## The Pipeline
 
-Every piece of work flows through five stages. **Planning and execution agents must consult `diagrams/` as a first-class context source — before reading source code.** See the [Diagrams](#diagrams) section for details.
+Every piece of work flows through five stages. Agents read source code directly as the source of truth, and update diagrams as documentation deliverables for human readers.
 
 ```
  ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
@@ -111,10 +111,9 @@ Every piece of work flows through five stages. **Planning and execution agents m
 **Who:** An AI agent, guided by prompt `user-development/prompts/1-plan-task.md`.
 
 **What happens:**
-- The agent reads all diagrams in `diagrams/` to build system understanding (diagram-first rule).
 - The agent reads all `agent-development/agent-specs/` documents for context.
 - The agent reads the specific task request from `agent-development/pending/`.
-- The agent inspects the current state of the project (files, directories, existing code) — only as needed if diagram confidence is below 9/10.
+- The agent reads the relevant source code to understand the current state of the project (the code is the source of truth). `diagrams/FOLDER-STRUCTURE.md` can be used for quick orientation.
 - The agent produces a detailed, step-by-step implementation plan following `_TEMPLATE-plan.md`.
 - The agent surfaces any ambiguities or decisions it cannot make on its own in the **"Open Questions & Decisions"** section.
 
@@ -141,11 +140,10 @@ Every piece of work flows through five stages. **Planning and execution agents m
 
 **What happens:**
 - The agent reads the approved plan from `agent-development/queued/`.
-- The agent reads relevant diagrams in `diagrams/` to ground its understanding before touching code.
 - The agent verifies that all open questions have been resolved (no `PENDING` markers remain).
 - The agent executes every step in order, following the plan precisely.
 - The agent runs all verification checks and confirms they pass.
-- The agent updates any diagrams affected by the changes.
+- The agent updates any diagrams affected by the changes (documentation for human readers).
 - After successful execution, the agent performs housekeeping moves:
   - Plan: `agent-development/queued/` → `agent-development/done/plans/`
   - Request: `agent-development/pending/` → `agent-development/done/requests/`
@@ -271,7 +269,7 @@ These files are the **source of truth** for the project. If a plan or request co
 
 ## Diagrams
 
-The `diagrams/` directory contains Mermaid diagram files that serve as the **primary knowledge base for agents**. Agents must consult diagrams before reading source code.
+The `diagrams/` directory contains Mermaid diagram files that serve as **visual documentation for human readers**. They provide a high-level overview of the system's architecture, data model, state machine, and data flow. The source code is the source of truth — agents should read code directly and not rely on diagrams for implementation decisions.
 
 ### Diagram Files
 
@@ -285,18 +283,9 @@ The `diagrams/` directory contains Mermaid diagram files that serve as the **pri
 
 Additionally, `diagrams/FOLDER-STRUCTURE.md` provides a complete project directory tree and package dependency graph for quick agent orientation.
 
-### Confidence-Threshold Rule
-
-When beginning any task, agents must:
-
-1. Read all relevant diagrams in `diagrams/`.
-2. Self-assess understanding of the relevant area on a scale of **1–10**.
-3. If confidence is **9 or above** — proceed with the task using diagram knowledge alone.
-4. If confidence is **below 9** — go to the source code for the specific areas of uncertainty, then re-assess.
-
 ### Maintenance Rule
 
-**Every task (plan or execution) must create or update diagrams as appropriate.** Diagrams are living documents that evolve with the code. Diagram updates are mandatory deliverables — as important as code changes.
+**Every task that changes the code should update affected diagrams as part of its documentation deliverables.** Diagrams are living documents that evolve with the code. They are kept current so that human readers have accurate visual references — but the code always wins when there's a conflict.
 
 For full conventions, see `diagrams/README.md`.
 
@@ -328,7 +317,7 @@ If a task introduces new packages, interfaces, or changes the architecture, the 
 
 ### Diagram Updates
 
-If a task introduces new types, changes inter-package dependencies, or modifies TUI states/transitions, the executing agent must update the relevant diagram(s) in `diagrams/`. See the [Diagrams](#diagrams) section for details.
+If a task introduces new types, changes inter-package dependencies, or modifies TUI states/transitions, the executing agent must update the relevant diagram(s) in `diagrams/` as a documentation deliverable for human readers. See the [Diagrams](#diagrams) section for details.
 
 ---
 
@@ -346,7 +335,7 @@ If a task introduces new types, changes inter-package dependencies, or modifies 
 1. Open a new agent conversation.
 2. Paste the contents of `user-development/prompts/1-plan-task.md`.
 3. Replace `<TASK_FILE>` with a reference to the `agent-development/pending/` file (e.g., `@5-api-integration-and-enrichment.md`).
-4. The agent reads diagrams, specs, and project state, then creates a plan in `agent-development/plans/`.
+4. The agent reads specs and source code, then creates a plan in `agent-development/plans/`.
 5. **Review the plan and resolve all open questions.**
 6. Move the plan from `agent-development/plans/` to `agent-development/queued/`.
 
@@ -355,7 +344,7 @@ If a task introduces new types, changes inter-package dependencies, or modifies 
 1. Open a new agent conversation.
 2. Paste the contents of `user-development/prompts/2-execute-plan.md`.
 3. Replace `<PLAN_FILE>` with a reference to the `agent-development/queued/` file.
-4. The agent reads diagrams, implements the plan, updates affected diagrams, then archives both the plan and request to `agent-development/done/`.
+4. The agent reads the source code, implements the plan, updates affected diagrams (documentation for human readers), then archives both the plan and request to `agent-development/done/`.
 
 ### "I want to populate the diagrams from scratch"
 
