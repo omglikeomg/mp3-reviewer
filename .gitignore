@@ -40,6 +40,9 @@ config/settings.json
 # Review data (generated/user-specific)
 data/manual_review.json
 
+# Atomic-write temp directory created by SaveState (runtime artifact)
+data/.tmp/
+
 # OS junk
 .DS_Store
 ._*

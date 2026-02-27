@@ -75,9 +75,10 @@ func (p ManualReviewProvider) GetTasks() ([]domain.Task, error) {
 // JSON entry is updated with status="applied", primary_genre, and secondary_genre.
 // Matching is done by relative filepath (task path with MusicFolder prefix stripped).
 //
-// The write is done atomically: the file is first written to a temp file in the
-// same directory, then renamed over the original. This prevents data loss if the
-// process is killed mid-write.
+// The write is done atomically: the file is first written to a temp file inside a
+// hidden .tmp/ subdirectory (sibling to the target JSON file), synced to stable
+// storage (fsync), and then renamed over the original. This prevents data loss if
+// the process is killed mid-write, even on a sudden power failure.
 func (p ManualReviewProvider) SaveState(tasks []domain.Task) error {
 	// Read current file content.
 	data, err := os.ReadFile(p.Config.JsonPath)
@@ -131,8 +132,15 @@ func (p ManualReviewProvider) SaveState(tasks []domain.Task) error {
 	}
 
 	// Atomic write via temp file + rename.
-	dir := filepath.Dir(p.Config.JsonPath)
-	tmp, err := os.CreateTemp(dir, "manual_review_*.json.tmp")
+	// Temp files are created inside a hidden .tmp/ subdirectory that is a sibling
+	// of the target JSON file. This keeps temp files out of JSON globs and casual
+	// directory listings while keeping them on the same filesystem as the target
+	// (required for os.Rename to be atomic).
+	tmpDir := filepath.Join(filepath.Dir(p.Config.JsonPath), ".tmp")
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		return fmt.Errorf("provider: SaveState creating temp dir: %w", err)
+	}
+	tmp, err := os.CreateTemp(tmpDir, "manual_review_*.json.tmp")
 	if err != nil {
 		return fmt.Errorf("provider: SaveState creating temp file: %w", err)
 	}
@@ -142,6 +150,14 @@ func (p ManualReviewProvider) SaveState(tasks []domain.Task) error {
 		_ = tmp.Close()
 		_ = os.Remove(tmpName)
 		return fmt.Errorf("provider: SaveState writing temp file: %w", err)
+	}
+	// Sync flushes the OS page cache to stable storage before we rename.
+	// Without this, a power failure after rename could leave a zero-length or
+	// truncated file even though the rename syscall succeeded.
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("provider: SaveState syncing temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpName)

@@ -12,7 +12,7 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 - **Immersive Playback** — Songs auto-play on selection. Seek ±30s to find the defining section of the track.
 - **Dual-Tier Genre Tagging** — Assign a Primary Genre (e.g., "Rock") and an optional Secondary Genre (e.g., "Psych-Rock").
 - **Data Enrichment** — Fetches the original release year and BPM automatically from MusicBrainz when a song loads. If no BPM is found, it can be calculated via **Tap Tempo** (press `t` to the beat; 8 taps required). Both values can be committed to the ID3 tags with `Ctrl+1` (BPM) and `Ctrl+2` (Year).
-- **Persistence** — Writes changes directly to MP3/FLAC ID3 tags and updates the source JSON to reflect "Applied" status.
+- **Persistence** — Writes changes directly to MP3/FLAC ID3 tags and updates the source JSON to reflect "Applied" status. JSON updates use an atomic write strategy (temp file → fsync → rename) so the review queue is never corrupted by an interrupted save.
 - **Undo Support** — Mis-categorized a song? Press `Ctrl+U` to undo and go back.
 
 ## Architecture

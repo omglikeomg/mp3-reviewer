@@ -267,3 +267,68 @@ func TestSaveState_NoneSecondaryGenre(t *testing.T) {
 		t.Errorf("secondary_genre = %q, want empty string (omitempty)", raw.ManualReview[0].SecondaryGenre)
 	}
 }
+
+// TestSaveState_OriginalFilePreservedOnWriteError verifies that if the temp-file
+// write is interrupted (simulated here by making the target directory read-only so
+// that os.MkdirAll cannot create the .tmp/ subdirectory), the original JSON file
+// is left completely intact and SaveState returns a non-nil error.
+//
+// This test is skipped when run as root (where filesystem permissions are not
+// enforced).
+func TestSaveState_OriginalFilePreservedOnWriteError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping: running as root — filesystem permission checks are not enforced")
+	}
+
+	const originalJSON = `{
+		"manual_review": [
+			{
+				"filepath": "Cream/Cream - Strange Brew.mp3",
+				"reason": "Genre not in taxonomy",
+				"confidence": 4
+			}
+		]
+	}`
+
+	dir := t.TempDir()
+	jsonPath := filepath.Join(dir, "manual_review.json")
+	if err := os.WriteFile(jsonPath, []byte(originalJSON), 0644); err != nil {
+		t.Fatalf("setup: writing temp JSON file: %v", err)
+	}
+
+	cfg := domain.AppConfig{
+		MusicFolder: "/test/music",
+		JsonPath:    jsonPath,
+	}
+	p := ManualReviewProvider{Config: cfg}
+
+	tasks := []domain.Task{
+		{
+			FilePath: filepath.Join("/test/music", "Cream/Cream - Strange Brew.mp3"),
+			Genre1:   "Rock",
+			Genre2:   "Blues-Rock",
+		},
+	}
+
+	// Make the directory read-only so os.MkdirAll cannot create the .tmp/
+	// subdirectory, causing SaveState to fail before touching the original file.
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatalf("setup: chmod dir: %v", err)
+	}
+	// Restore write permission so t.TempDir cleanup can delete the directory.
+	t.Cleanup(func() { _ = os.Chmod(dir, 0755) })
+
+	err := p.SaveState(tasks)
+	if err == nil {
+		t.Fatal("SaveState() expected an error when temp dir cannot be created, got nil")
+	}
+
+	// The original file must be byte-for-byte identical to what was written at setup.
+	got, readErr := os.ReadFile(jsonPath)
+	if readErr != nil {
+		t.Fatalf("reading original file after failed SaveState: %v", readErr)
+	}
+	if string(got) != originalJSON {
+		t.Errorf("original file was modified by a failing SaveState:\ngot:  %q\nwant: %q", string(got), originalJSON)
+	}
+}
