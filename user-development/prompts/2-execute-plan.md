@@ -19,9 +19,7 @@ Read and execute the approved plan at **→ `<PLAN_FILE>`**
 
 ## After All Steps Pass
 
-Update any diagrams in `diagrams/` that were affected by the changes made during execution. These are documentation for human readers — add new types, methods, state transitions, packages, or architectural components to the relevant `.mmd` files so the visual docs stay current. The source code is the source of truth; diagrams are supplementary.
-
-Then perform these file moves:
+Perform these file moves:
 
 1. **Move the plan:** `agent-development/queued/<plan-file>` → `agent-development/done/plans/<plan-file>`
 2. **Move the matching request:** `agent-development/pending/<N>-<name>.md` → `agent-development/done/requests/<N>-<name>.md` (match by task number referenced in the plan)
@@ -34,5 +32,4 @@ Provide a short summary:
 - 🔑 Open questions — list each resolved question and the human decision that was applied
 - ⚠️ Warnings or issues encountered (even if resolved)
 - 📁 Files created or modified
-- 📊 Diagrams updated (documentation for human readers)
 - 🔀 Files moved (plan and request)

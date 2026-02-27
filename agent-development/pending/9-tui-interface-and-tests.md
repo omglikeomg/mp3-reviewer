@@ -70,4 +70,4 @@ All of these require the `engine` field to be mockable.
 - [ ] `go test ./internal/tui/... -v` shows all 10 tests passing.
 - [ ] `go vet ./internal/tui/...` exits 0 with no output.
 - [ ] Update `agent-development/agent-specs/architecture-breakdown.md` to mention the `AudioPlayer` interface.
-- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.
+- [ ] Update `agent-development/agent-specs/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.

@@ -19,7 +19,6 @@ This document describes the development workflow used to build the **Song Review
 - [Prompt Templates](#prompt-templates)
 - [Document Templates](#document-templates)
 - [Project Specs](#project-specs)
-- [Diagrams](#diagrams)
 - [Conventions](#conventions)
 - [Quick Reference: Common Actions](#quick-reference-common-actions)
 
@@ -44,7 +43,6 @@ The key principle is that **no code is written without an approved plan**, and *
 user-development/                   ← Human-facing development assets
 ├── DEVELOPMENT-GUIDE.md            ← You are here
 └── prompts/                        ← Reusable prompt templates for humans
-    ├── 0-create-initial-diagrams.md
     ├── 1-plan-task.md
     ├── 2-execute-plan.md
     └── 3-request-feature.md
@@ -53,10 +51,10 @@ agent-development/                  ← Agent-only pipeline (requests, plans, ex
 ├── agent-specs/                    ← Project-level specifications (read-only context)
 │   ├── agent-instructions.md       ← Coding standards and dos/don'ts
 │   ├── application-overview.md     ← What the app does
-│   └── architecture-breakdown.md   ← Folder structure, design patterns, tech stack
+│   ├── architecture-breakdown.md   ← Folder structure, design patterns, tech stack
+│   └── FOLDER-STRUCTURE.md         ← Quick-reference project directory tree & package deps
 ├── pending/                        ← Task requests waiting to be planned
 │   ├── _TEMPLATE-request.md        ← Template for new requests
-│   ├── 5-api-integration-and-enrichment.md
 │   ├── 6-code-audit.md
 │   ├── 7-application-assembly-and-lifecycle.md
 │   ├── 8-reliability.md
@@ -67,22 +65,13 @@ agent-development/                  ← Agent-only pipeline (requests, plans, ex
 └── done/                           ← Completed work
     ├── plans/                      ← Executed plans (archive)
     └── requests/                   ← Fulfilled requests (archive)
-
-diagrams/                           ← Mermaid diagrams — visual documentation for humans
-├── README.md                       ← Diagram conventions and maintenance rule
-├── FOLDER-STRUCTURE.md             ← Quick-reference project directory tree & package deps
-├── data-structures.mmd             ← Class diagram of all domain/config/provider types
-├── software-architecture.mmd       ← Package structure, interfaces, call relationships
-├── ui-state-machine.mmd            ← All AppState values, screens, and state transitions
-├── task-lifecycle.mmd              ← Review-queue task flow: load → review → tag → persist
-└── component-data-flow.mmd         ← MVU pipeline: Cmd dispatch, Msg returns, component interactions
 ```
 
 ---
 
 ## The Pipeline
 
-Every piece of work flows through five stages. Agents read source code directly as the source of truth, and update diagrams as documentation deliverables for human readers.
+Every piece of work flows through five stages. Agents read source code directly as the source of truth.
 
 ```
  ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
@@ -113,7 +102,7 @@ Every piece of work flows through five stages. Agents read source code directly 
 **What happens:**
 - The agent reads all `agent-development/agent-specs/` documents for context.
 - The agent reads the specific task request from `agent-development/pending/`.
-- The agent reads the relevant source code to understand the current state of the project (the code is the source of truth). `diagrams/FOLDER-STRUCTURE.md` can be used for quick orientation.
+- The agent reads the relevant source code to understand the current state of the project (the code is the source of truth). `agent-development/agent-specs/FOLDER-STRUCTURE.md` can be used for quick orientation.
 - The agent produces a detailed, step-by-step implementation plan following `_TEMPLATE-plan.md`.
 - The agent surfaces any ambiguities or decisions it cannot make on its own in the **"Open Questions & Decisions"** section.
 
@@ -143,12 +132,11 @@ Every piece of work flows through five stages. Agents read source code directly 
 - The agent verifies that all open questions have been resolved (no `PENDING` markers remain).
 - The agent executes every step in order, following the plan precisely.
 - The agent runs all verification checks and confirms they pass.
-- The agent updates any diagrams affected by the changes (documentation for human readers).
 - After successful execution, the agent performs housekeeping moves:
   - Plan: `agent-development/queued/` → `agent-development/done/plans/`
   - Request: `agent-development/pending/` → `agent-development/done/requests/`
 
-**Output:** Code is written/modified. Diagrams are updated. Plan and request are archived in `agent-development/done/`.
+**Output:** Code is written/modified. Plan and request are archived in `agent-development/done/`.
 
 ### Stage 5: Done
 
@@ -233,7 +221,6 @@ Located in `user-development/prompts/`. These are copy-paste prompts the human u
 
 | Prompt | File | Purpose |
 |---|---|---|
-| Create Initial Diagrams | `user-development/prompts/0-create-initial-diagrams.md` | Give to an agent to populate all diagram `.mmd` files from source code |
 | Plan a Task | `user-development/prompts/1-plan-task.md` | Give to an agent to produce a plan from a `pending/` request |
 | Execute a Plan | `user-development/prompts/2-execute-plan.md` | Give to an agent to implement an approved plan from `queued/` |
 | Request a Feature | `user-development/prompts/3-request-feature.md` | Give to an agent to write a new task request in `pending/` |
@@ -255,39 +242,16 @@ Agents are instructed to follow these templates exactly when creating new docume
 
 ## Project Specs
 
-The `agent-development/agent-specs/` directory contains three read-only documents that provide global context to every agent conversation:
+The `agent-development/agent-specs/` directory contains documents that provide global context to every agent conversation:
 
 | Document | Path | Purpose |
 |---|---|---|
 | Application Overview | `agent-development/agent-specs/application-overview.md` | What the Song Reviewer CLI does, its core workflows, and UX goals |
 | Architecture Breakdown | `agent-development/agent-specs/architecture-breakdown.md` | Folder structure, design patterns (MVU, Adapter), technology stack |
 | Agent Instructions | `agent-development/agent-specs/agent-instructions.md` | Coding standards, dos/don'ts, metadata guidelines |
+| Folder Structure | `agent-development/agent-specs/FOLDER-STRUCTURE.md` | Complete project directory tree and package dependency graph |
 
 These files are the **source of truth** for the project. If a plan or request contradicts them, the specs take precedence (or the specs should be updated first).
-
----
-
-## Diagrams
-
-The `diagrams/` directory contains Mermaid diagram files that serve as **visual documentation for human readers**. They provide a high-level overview of the system's architecture, data model, state machine, and data flow. The source code is the source of truth — agents should read code directly and not rely on diagrams for implementation decisions.
-
-### Diagram Files
-
-| File | Diagram Type | What It Covers |
-|---|---|---|
-| `diagrams/data-structures.mmd` | `classDiagram` | All domain types, config types, and provider types — their fields, methods, and relationships (composition, dependency, interface satisfaction). |
-| `diagrams/software-architecture.mmd` | `flowchart` / `classDiagram` | Packages as groups/subgraphs, key structs and interfaces with their public methods/functions, inter-package dependencies, and call relationships. |
-| `diagrams/ui-state-machine.mmd` | `stateDiagram-v2` | All `AppState` values the TUI can be in, which screens/views correspond to each state, and the transitions between them triggered by user actions or system events. |
-| `diagrams/task-lifecycle.mmd` | `stateDiagram-v2` | How a Task (song) moves through the review pipeline: loading from JSON → queued for review → playing/reviewing → genre selection → tag writing → state persistence → advancing or undoing. |
-| `diagrams/component-data-flow.mmd` | `flowchart` | How data flows through the Bubble Tea MVU pipeline: `tea.Cmd` dispatch, `tea.Msg` return paths, Model/Update/View interactions, external component invocations (audio, metadata, provider, API), and ticker/spinner refresh cycles. |
-
-Additionally, `diagrams/FOLDER-STRUCTURE.md` provides a complete project directory tree and package dependency graph for quick agent orientation.
-
-### Maintenance Rule
-
-**Every task that changes the code should update affected diagrams as part of its documentation deliverables.** Diagrams are living documents that evolve with the code. They are kept current so that human readers have accurate visual references — but the code always wins when there's a conflict.
-
-For full conventions, see `diagrams/README.md`.
 
 ---
 
@@ -313,11 +277,7 @@ After cloning, users must copy the `.example.json` files to their runtime locati
 
 ### Spec Updates
 
-If a task introduces new packages, interfaces, or changes the architecture, the executing agent must update `agent-development/agent-specs/architecture-breakdown.md` and/or `agent-development/agent-specs/agent-instructions.md` as part of the task. These updates ensure future agents have accurate context.
-
-### Diagram Updates
-
-If a task introduces new types, changes inter-package dependencies, or modifies TUI states/transitions, the executing agent must update the relevant diagram(s) in `diagrams/` as a documentation deliverable for human readers. See the [Diagrams](#diagrams) section for details.
+If a task introduces new packages, interfaces, or changes the architecture, the executing agent must update `agent-development/agent-specs/architecture-breakdown.md`, `agent-development/agent-specs/FOLDER-STRUCTURE.md`, and/or `agent-development/agent-specs/agent-instructions.md` as part of the task. These updates ensure future agents have accurate context.
 
 ---
 
@@ -344,13 +304,7 @@ If a task introduces new types, changes inter-package dependencies, or modifies 
 1. Open a new agent conversation.
 2. Paste the contents of `user-development/prompts/2-execute-plan.md`.
 3. Replace `<PLAN_FILE>` with a reference to the `agent-development/queued/` file.
-4. The agent reads the source code, implements the plan, updates affected diagrams (documentation for human readers), then archives both the plan and request to `agent-development/done/`.
-
-### "I want to populate the diagrams from scratch"
-
-1. Open a new agent conversation.
-2. Paste the contents of `user-development/prompts/0-create-initial-diagrams.md`.
-3. The agent reads all source code and specs, then fills in the three `.mmd` files in `diagrams/`.
+4. The agent reads the source code, implements the plan, then archives both the plan and request to `agent-development/done/`.
 
 ### "I want to see what's in progress"
 

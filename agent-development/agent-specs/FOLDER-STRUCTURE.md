@@ -3,7 +3,7 @@
 This file provides agents with an at-a-glance view of the entire project layout so they can orient themselves without scanning the filesystem.
 
 > **Last updated:** Task 5 — API integration and enrichment features implemented.
-> **Maintenance rule:** If a task adds or removes top-level directories, packages, or significant files, update this document as part of the task deliverables.
+> **Maintenance rule:** If a task adds or removes top-level directories, packages, or significant files, update `agent-development/agent-specs/FOLDER-STRUCTURE.md` as part of the task deliverables.
 
 ---
 
@@ -40,19 +40,9 @@ mp3-reviewer/
 ├── data/
 │   └── manual_review.json          ← Review queue data (gitignored — copy from manual_review.example.json)
 │
-├── diagrams/                        ← Mermaid diagrams — visual documentation for humans
-│   ├── README.md                    ← Diagram conventions and maintenance rule
-│   ├── FOLDER-STRUCTURE.md          ← You are here
-│   ├── data-structures.mmd          ← classDiagram: all domain/config/provider/audio/TUI types
-│   ├── software-architecture.mmd    ← flowchart: packages, dependencies, call flows
-│   ├── ui-state-machine.mmd         ← stateDiagram-v2: all AppState values and transitions
-│   ├── task-lifecycle.mmd           ← stateDiagram-v2: review-queue task lifecycle and data flow
-│   └── component-data-flow.mmd      ← flowchart: MVU component lifecycle, message/command data flow
-│
 ├── user-development/                ← Human-facing development assets
 │   ├── DEVELOPMENT-GUIDE.md         ← Spec-driven workflow documentation
 │   └── prompts/                     ← Reusable prompt templates for humans
-│       ├── 0-create-initial-diagrams.md
 │       ├── 1-plan-task.md
 │       ├── 2-execute-plan.md
 │       └── 3-request-feature.md
@@ -61,10 +51,10 @@ mp3-reviewer/
 │   ├── agent-specs/                 ← Project-level specifications (read-only context)
 │   │   ├── agent-instructions.md    ← Coding standards, dos/don'ts, workflow
 │   │   ├── application-overview.md  ← What the app does, core workflows, UX goals
-│   │   └── architecture-breakdown.md ← Folder structure, design patterns, tech stack
+│   │   ├── architecture-breakdown.md ← Folder structure, design patterns, tech stack
+│   │   └── FOLDER-STRUCTURE.md      ← You are here
 │   ├── pending/                     ← Task requests waiting to be planned
 │   │   ├── _TEMPLATE-request.md
-│   │   ├── 5-api-integration-and-enrichment.md
 │   │   ├── 6-code-audit.md
 │   │   ├── 7-application-assembly-and-lifecycle.md
 │   │   ├── 8-reliability.md
@@ -72,7 +62,6 @@ mp3-reviewer/
 │   ├── plans/                       ← Implementation plans waiting for approval
 │   │   └── _TEMPLATE-plan.md
 │   ├── queued/                      ← Approved plans ready for execution
-│   │   └── 5-api-integration-and-enrichment-plan.md
 │   └── done/                        ← Completed work
 │       ├── plans/                   ← Executed plans (archive)
 │       └── requests/                ← Fulfilled requests (archive)
@@ -121,4 +110,3 @@ internal/domain
 | **Config files** | `.example.json` files are git-tracked templates; runtime copies in `config/` and `data/` are gitignored. |
 | **TUI file split** | `model.go` (structs + Cmd factories), `update.go` (message dispatch), `view.go` (rendering + styles). Never merge. |
 | **Task numbering** | Sequential across `agent-development/pending/` and `agent-development/done/requests/` combined. |
-| **Diagram format** | All `.mmd` files use [Mermaid](https://mermaid.js.org/) syntax. |

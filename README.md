@@ -17,44 +17,20 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 
 ## Architecture
 
-```
-cmd/reviewer/               — Entry point. Loads config, builds queue, starts Bubble Tea program.
-internal/domain/            — Pure data structures (Task, Config). No dependencies.
-internal/provider/          — JSON parser adapters (TaskProvider interface + SaveState persistence).
-internal/audio/             — Audio engine (Engine struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown.
-internal/tui/               — Bubble Tea TUI: header, progress bar, status bar, genre selection modal, keybinding dispatch.
-internal/metadata/          — ID3 tag write logic (pure Go, bogem/id3v2).
-internal/api/               — External HTTP clients (MusicBrainz, BPM APIs).
-data/                       — Holds the manual_review.json queue file.
-config/                     — Holds settings.json with app configuration.
-
-diagrams/                   — Mermaid diagrams & references: visual documentation for humans.
-├── README.md               — Diagram conventions and maintenance rule.
-├── FOLDER-STRUCTURE.md     — Complete project directory tree and package dependency graph.
-├── data-structures.mmd     — Class diagram of all domain types, fields, and relationships.
-├── software-architecture.mmd — Packages, structs, interfaces, public methods, and call relationships.
-├── ui-state-machine.mmd    — All AppState values, screens/views, and state transitions.
-├── task-lifecycle.mmd      — Review-queue task lifecycle: load → review → tag → persist → advance.
-└── component-data-flow.mmd — MVU pipeline data flow: Cmds, Msgs, component interactions.
-
-user-development/           — Human-facing development assets (prompts, guides).
-├── DEVELOPMENT-GUIDE.md    — Spec-driven workflow documentation.
-└── prompts/                — Reusable prompt templates for humans to start agent conversations.
-
-agent-development/          — Agent-facing pipeline (specs, requests, plans).
-├── agent-specs/            — Project-level specifications (read-only context for agents).
-│   ├── agent-instructions.md
-│   ├── application-overview.md
-│   └── architecture-breakdown.md
-├── pending/                — Task requests waiting to be planned.
-├── plans/                  — Implementation plans waiting for approval.
-├── queued/                 — Approved plans ready for execution.
-└── done/                   — Completed work (archived plans and requests).
-```
-
-### Diagrams
-
-The `diagrams/` directory contains Mermaid (`.mmd`) diagrams and reference documents that provide visual documentation of the system's data structures, software architecture, UI state machine, task lifecycle, and component data flow. These are maintained for human readers who prefer a visual overview. The source code is the source of truth — agents read code directly and update diagrams as documentation deliverables. See `diagrams/README.md` for conventions and `diagrams/FOLDER-STRUCTURE.md` for a quick-orientation project tree.
+| Package | Role |
+|---|---|
+| `cmd/reviewer/` | Entry point. Loads config, builds queue, starts Bubble Tea program. |
+| `internal/domain/` | Pure data structures (`Task`, `Config`). No dependencies. |
+| `internal/provider/` | JSON parser adapters (`TaskProvider` interface + `SaveState` persistence). |
+| `internal/audio/` | Audio engine (`Engine` struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown. |
+| `internal/tui/` | Bubble Tea TUI: header, progress bar, status bar, genre selection modal, keybinding dispatch. |
+| `internal/metadata/` | ID3 tag write logic (pure Go, `bogem/id3v2`). |
+| `internal/api/` | External HTTP clients (MusicBrainz). |
+| `data/` | Holds the `manual_review.json` queue file. |
+| `config/` | Holds `settings.json` with app configuration. |
+| `user-development/` | Human-facing development assets (prompts, guides). |
+| `agent-development/` | Agent-facing pipeline (specs, requests, plans). |
+| `agent-development/agent-specs/` | Project-level specifications (read-only context for agents). |
 
 ### Design Patterns
 

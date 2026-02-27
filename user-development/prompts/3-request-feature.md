@@ -11,7 +11,7 @@ Familiarize yourself with the project context by reading the spec documents and 
    - `agent-development/agent-specs/application-overview.md`
    - `agent-development/agent-specs/architecture-breakdown.md`
 
-2. **Read the relevant source code** to understand the current state of the system. Use `diagrams/FOLDER-STRUCTURE.md` for quick orientation on the project layout if needed. The source code is the source of truth — do not rely on `.mmd` diagram files for implementation understanding, as they are visual documentation for human readers and may lag behind the code.
+2. **Read the relevant source code** to understand the current state of the system. Use `agent-development/agent-specs/FOLDER-STRUCTURE.md` for quick orientation on the project layout if needed. The source code is the source of truth.
 
 Then, review the existing task requests to understand the current scope and numbering:
 

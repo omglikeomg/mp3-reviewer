@@ -26,5 +26,5 @@ We need to wire the Domain, Provider, Audio, and TUI together into a single exec
 - [ ] Implement the `Settings` view and `Ctrl-O` toggle in `update.go`.
 - [ ] Ensure the app doesn't crash if the `settings.json` is missing (provide defaults).
 - [ ] Update `agent-development/agent-specs/architecture-breakdown.md` to document the tagging strategy.
+- [ ] Update `agent-development/agent-specs/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
 - [ ] Update `README.md` with latest considerations.
-- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.

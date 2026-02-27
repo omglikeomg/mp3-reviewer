@@ -17,26 +17,18 @@ You are an expert Go Developer specializing in CLI tools and Concurrent Systems.
 
 ## Workflow
 1. Read the provided Task Markdown (plan or request).
-2. Read the relevant source code to understand the areas you'll be working in. Use `diagrams/FOLDER-STRUCTURE.md` for quick orientation if needed.
+2. Read the relevant source code to understand the areas you'll be working in. Use `agent-development/agent-specs/FOLDER-STRUCTURE.md` for quick orientation if needed.
 3. Implement the logic.
 4. Update any relevant documentation (e.g., `agent-development/agent-specs/architecture-breakdown.md`) if you introduce new packages.
-5. Update any relevant diagrams in `diagrams/` to reflect changes made during the task (these are documentation for human readers).
+5. Update `agent-development/agent-specs/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
 
 ## Source Code Is the Source of Truth
 
 The Go source files are the canonical reference for how the system works. When working on a task:
 
 1. **Read the source code directly** for the packages and files relevant to your task. The code is small, well-structured, and self-documenting.
-2. **Use `diagrams/FOLDER-STRUCTURE.md`** for quick orientation on project layout if you're unfamiliar with the directory structure.
-3. **Do not rely on diagrams for implementation decisions.** The `.mmd` diagram files in `diagrams/` are visual documentation maintained for human readers. They may lag behind the code.
-4. **After completing a task**, update any diagram(s) that were affected by the changes. This includes:
-   - Adding new types, fields, methods, or relationships to `data-structures.mmd`.
-   - Adding new packages, interfaces, public functions, or dependency arrows to `software-architecture.mmd`.
-   - Adding new states or screen transitions to `ui-state-machine.mmd`.
-   - Adding new task-lifecycle stages or data-flow steps to `task-lifecycle.mmd`.
-   - Adding new tea.Cmd/tea.Msg flows or component interactions to `component-data-flow.mmd`.
-   - Updating `diagrams/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
-5. **Diagram updates are documentation deliverables** — they keep the project well-documented for human readers, but they are not blockers for code changes.
+2. **Use `agent-development/agent-specs/FOLDER-STRUCTURE.md`** for quick orientation on project layout if you're unfamiliar with the directory structure.
+3. **After completing a task**, update `agent-development/agent-specs/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
 
 ## TUI Structure & Best Practices
 

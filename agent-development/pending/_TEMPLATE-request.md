@@ -44,5 +44,5 @@
 - [ ] Check 2 (e.g., unit tests pass: `go test ./internal/provider/...`)
 - [ ] Check 3 (e.g., `README.md` updated with new configuration options)
 - [ ] Update `agent-development/agent-specs/architecture-breakdown.md` if new packages or interfaces were introduced.
+- [ ] Update `agent-development/agent-specs/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
 - [ ] Update `README.md` with latest considerations.
-- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes (documentation for human readers).
