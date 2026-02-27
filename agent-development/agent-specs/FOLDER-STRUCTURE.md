@@ -2,7 +2,7 @@
 
 This file provides agents with an at-a-glance view of the entire project layout so they can orient themselves without scanning the filesystem.
 
-> **Last updated:** Task 5 — API integration and enrichment features implemented.
+> **Last updated:** Task 9 — AudioPlayer interface introduced in tui; TUI unit tests added.
 > **Maintenance rule:** If a task adds or removes top-level directories, packages, or significant files, update `agent-development/agent-specs/FOLDER-STRUCTURE.md` as part of the task deliverables.
 
 ---
@@ -25,9 +25,11 @@ mp3-reviewer/
 │   │   ├── engine.go               ← Audio Engine: Play, Seek, TogglePause, GetState, Close
 │   │   └── engine_test.go
 │   ├── tui/
-│   │   ├── model.go                ← Model struct, AppState enum, tea.Msg types, tea.Cmd factories
+│   │   ├── model.go                ← Model struct, AudioPlayer interface, AppState enum, tea.Msg types, tea.Cmd factories
 │   │   ├── update.go               ← Init, Update, key handling, message dispatch
-│   │   └── view.go                 ← View rendering, lipgloss styles
+│   │   ├── view.go                 ← View rendering, lipgloss styles
+│   │   ├── mock_player_test.go     ← Test-only mockPlayer implementing AudioPlayer
+│   │   └── update_test.go          ← Unit tests for handleKey, skipToNext, undoLast, TickMsg
 │   ├── metadata/
 │   │   └── writer.go               ← WriteTags, WriteBPM, WriteYear (ID3v2 tag writing)
 │   └── api/
@@ -54,11 +56,7 @@ mp3-reviewer/
 │   │   ├── architecture-breakdown.md ← Folder structure, design patterns, tech stack
 │   │   └── FOLDER-STRUCTURE.md      ← You are here
 │   ├── pending/                     ← Task requests waiting to be planned
-│   │   ├── _TEMPLATE-request.md
-│   │   ├── 6-code-audit.md
-│   │   ├── 7-application-assembly-and-lifecycle.md
-│   │   ├── 8-reliability.md
-│   │   └── 9-tui-interface-and-tests.md
+│   │   └── _TEMPLATE-request.md
 │   ├── plans/                       ← Implementation plans waiting for approval
 │   │   └── _TEMPLATE-plan.md
 │   ├── queued/                      ← Approved plans ready for execution

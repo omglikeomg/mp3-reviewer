@@ -117,3 +117,26 @@ func WriteYear(path string, year string) error {
 
 	return nil
 }
+
+// ReadTags opens the audio file at path and reads the Title (TIT2 frame) and
+// Artist (TPE1 frame) ID3 tags. It returns the values found; either may be an
+// empty string if the tag is absent or the file has no ID3 header.
+//
+// Errors are non-fatal from the caller's perspective — if the file cannot be
+// opened or parsed, ReadTags returns empty strings and the error so the caller
+// can fall back gracefully (e.g. display the filename instead).
+//
+// This function is used by ManualReviewProvider.GetTasks() to populate
+// Task.Title and Task.Artist at queue-load time. It opens the file read-only
+// (id3v2.Options{Parse: true}) and does not write anything.
+func ReadTags(path string) (title, artist string, err error) {
+	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
+	if err != nil {
+		return "", "", fmt.Errorf("metadata: opening %q for tag read: %w", path, err)
+	}
+	defer tag.Close()
+
+	title = tag.Title()
+	artist = tag.Artist()
+	return title, artist, nil
+}

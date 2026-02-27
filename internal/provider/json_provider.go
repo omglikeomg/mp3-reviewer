@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"song-reviewer/internal/domain"
+	"song-reviewer/internal/metadata"
 )
 
 // TaskProvider is the interface for all review queue sources.
@@ -57,8 +58,17 @@ func (p ManualReviewProvider) GetTasks() ([]domain.Task, error) {
 
 	tasks := make([]domain.Task, 0, len(raw.ManualReview))
 	for _, entry := range raw.ManualReview {
+		absPath := filepath.Join(p.Config.MusicFolder, entry.FilePath)
+
+		// Read Title and Artist from the file's ID3 tags. Non-fatal: if the file
+		// is missing, corrupted, or has no tags, Title and Artist remain empty
+		// and the TUI falls back to a filename display.
+		title, artist, _ := metadata.ReadTags(absPath)
+
 		task := domain.Task{
-			FilePath: filepath.Join(p.Config.MusicFolder, entry.FilePath),
+			FilePath: absPath,
+			Title:    title,
+			Artist:   artist,
 			Genre1:   entry.PrimaryGenre,
 			Genre2:   entry.SecondaryGenre,
 			BPM:      entry.BPM,

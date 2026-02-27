@@ -8,7 +8,7 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 
 ## Features
 
-- **Review Queue** — Reads a JSON file of songs marked for `manual_review` and presents them one at a time.
+- **Review Queue** — Reads a JSON file of songs marked for `manual_review` and presents them one at a time. Song title and artist are read automatically from each file's ID3 tags on load; if tags are absent the filename is shown instead.
 - **Immersive Playback** — Songs auto-play on selection. Seek ±30s to find the defining section of the track.
 - **Dual-Tier Genre Tagging** — Assign a Primary Genre (e.g., "Rock") and an optional Secondary Genre (e.g., "Psych-Rock").
 - **Data Enrichment** — Fetches the original release year and BPM automatically from MusicBrainz when a song loads. If no BPM is found, it can be calculated via **Tap Tempo** (press `t` to the beat; 8 taps required). Both values can be committed to the ID3 tags with `Ctrl+1` (BPM) and `Ctrl+2` (Year).
@@ -24,7 +24,7 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 | `internal/provider/` | JSON parser adapters (`TaskProvider` interface + `SaveState` persistence). |
 | `internal/audio/` | Audio engine (`Engine` struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown. |
 | `internal/tui/` | Bubble Tea TUI: header, progress bar, status bar, genre selection modal, keybinding dispatch. |
-| `internal/metadata/` | ID3 tag write logic (pure Go, `bogem/id3v2`). |
+| `internal/metadata/` | ID3 tag read/write logic (pure Go, `bogem/id3v2`). Reads Title and Artist on queue load; writes Genre, BPM, and Year on user action. |
 | `internal/api/` | External HTTP clients (MusicBrainz). |
 | `data/` | Holds the `manual_review.json` queue file. |
 | `config/` | Holds `settings.json` with app configuration. |
@@ -136,6 +136,7 @@ The first song in the review queue plays automatically on launch. Use the keybin
 | `Ctrl+2` | Commit suggested Year to the MP3's year tag (only active when year is found) |
 | `Esc` | Skip current song and move to next |
 | `Ctrl+U` | Undo last genre assignment |
+| `Ctrl+O` | Open Settings overlay (edit Music Folder and JSON paths) |
 | `Ctrl+C` | Quit (cleanly shuts down audio device) |
 
 ## Genre Tagging
@@ -175,6 +176,18 @@ The app first attempts to fetch BPM from MusicBrainz user-contributed tags. Sinc
 - The UI shows how many taps remain before a BPM value is calculated.
 - **Yellow** — BPM calculated, not yet committed. Press `Ctrl+1` to write it to the ID3 `TBPM` tag.
 - **Green ✓** — BPM committed to the file.
+
+## Settings
+
+Press `Ctrl+O` at any time during review to open the Settings overlay. This lets you change
+the **Music Folder Path** and **Review JSON Path** without restarting the app.
+
+- Press `Tab` / `Shift-Tab` to switch between fields.
+- Press `Enter` to save and immediately reload the review queue from the new path.
+- Press `Esc` to cancel without saving.
+
+> **Note:** Changes made via the Settings overlay are written back to `config/settings.json`
+> atomically so they persist across restarts.
 
 ## Review JSON Format
 

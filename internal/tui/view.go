@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -83,14 +84,27 @@ var (
 	styleEnrichIdle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#555555")).
 			Italic(true)
+
+	// styleSettingsLabel styles the field labels in the Settings overlay.
+	styleSettingsLabel = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#A8DADC")).
+				Bold(true)
+
+	// styleSettingsHint styles the keybinding hints at the bottom of the Settings overlay.
+	styleSettingsHint = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#555555"))
 )
 
 // View renders the full TUI frame. Pure function — no side effects.
 func (m Model) View() string {
-	if m.state == StateGenreSelection {
+	switch m.state {
+	case StateGenreSelection:
 		return m.viewGenreModal()
+	case StateSettings:
+		return m.viewSettings()
+	default:
+		return m.viewReviewing()
 	}
-	return m.viewReviewing()
 }
 
 // viewReviewing renders the main playback screen:
@@ -108,7 +122,7 @@ func (m Model) viewReviewing() string {
 			artist = "Unknown Artist"
 		}
 		if title == "" {
-			title = task.FilePath
+			title = filepath.Base(task.FilePath)
 		}
 		headerLine = styleHeader.Render(
 			styleArtist.Render(artist) + "  —  " + styleTitle.Render(title),
@@ -147,6 +161,7 @@ func (m Model) viewReviewing() string {
 		"   " + hintStr("Ctrl+2", "commit year") +
 		"   " + hintStr("Esc", "skip") +
 		"   " + hintStr("Ctrl+U", "undo") +
+		"   " + hintStr("Ctrl+O", "settings") +
 		"   " + hintStr("Ctrl+C", "quit")
 
 	statusLine := styleStatus.Render(
@@ -258,4 +273,30 @@ func (m Model) viewGenreModal() string {
 // hintStr formats a single keybinding hint as "Key  description".
 func hintStr(key, description string) string {
 	return styleHintKey.Render(key) + styleHint.Render("  "+description)
+}
+
+// viewSettings renders the Settings overlay.
+// The user can edit MusicFolder and JsonPath using bubbles/textinput.
+// Tab / Shift-Tab switches focus. Enter saves and reloads the queue. Esc cancels.
+func (m Model) viewSettings() string {
+	title := styleModalTitle.Render("  Settings")
+
+	musicLabel := styleSettingsLabel.Render("  Music Folder Path:")
+	musicField := "  " + m.settingsMusicFolder.View()
+
+	jsonLabel := styleSettingsLabel.Render("  Review JSON Path:")
+	jsonField := "  " + m.settingsJsonPath.View()
+
+	hints := "  " + styleSettingsHint.Render(
+		hintStr("Tab", "next field")+
+			"   "+hintStr("Enter", "save & reload")+
+			"   "+hintStr("Esc", "cancel"),
+	)
+
+	inner := title + "\n\n" +
+		musicLabel + "\n" + musicField + "\n\n" +
+		jsonLabel + "\n" + jsonField + "\n\n" +
+		hints
+
+	return "\n" + styleModal.Render(inner) + "\n"
 }

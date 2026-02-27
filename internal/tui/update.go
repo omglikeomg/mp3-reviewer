@@ -7,6 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+
+	"song-reviewer/internal/domain"
 )
 
 // Init satisfies the tea.Model interface. It returns the pendingInit command
@@ -28,6 +30,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.state == StateGenreSelection {
 			m.genreList.SetWidth(msg.Width - 4)
 		}
+		m.settingsMusicFolder.Width = msg.Width - 10
+		m.settingsJsonPath.Width = msg.Width - 10
 		return m, nil
 
 	case TickMsg:
@@ -133,6 +137,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case QueueReloadedMsg:
+		if msg.Err != nil {
+			m.lastSaveErr = msg.Err
+			return m, nil
+		}
+		// Replace the task list in-place, reset position.
+		m.queue.Tasks = msg.Tasks
+		m.queue.CurrentIndex = 0
+		m.queue.History = []domain.Task{}
+		m.lastPlayErr = nil
+		m.lastSaveErr = nil
+		m = m.resetEnrichment()
+
+		// Auto-play the first song of the newly loaded queue.
+		var cmds []tea.Cmd
+		if len(msg.Tasks) > 0 {
+			first := msg.Tasks[0]
+			cmds = append(cmds, playCmd(m.engine, first.FilePath))
+			if first.Artist != "" || first.Title != "" {
+				m.enrichYearStatus = enrichLoading
+				m.enrichBPMStatus = enrichLoading
+				cmds = append(cmds, fetchYearCmd(first.Artist, first.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+				cmds = append(cmds, fetchBPMCmd(first.Artist, first.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+			}
+		}
+		return m, tea.Batch(cmds...)
+
+	case SettingsSavedMsg:
+		if msg.Err != nil {
+			m.lastSaveErr = msg.Err
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -149,10 +186,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // handleKey dispatches keyboard input based on current AppState.
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// ── Settings state ────────────────────────────────────────────────────────
+	if m.state == StateSettings {
+		return m.handleSettingsKey(msg)
+	}
+
 	// ── Genre Selection state ─────────────────────────────────────────────────
 	if m.state == StateGenreSelection {
 		switch msg.String() {
 		case "ctrl+c":
+			// Flush any pending JSON enrichment data before quitting.
+			_ = m.providerRef.SaveState(m.queue.Tasks)
 			m.engine.Close()
 			return m, tea.Quit
 
@@ -173,6 +217,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 
 	case "ctrl+c":
+		// Flush any pending JSON enrichment data before quitting.
+		_ = m.providerRef.SaveState(m.queue.Tasks)
 		m.engine.Close()
 		return m, tea.Quit
 
@@ -197,6 +243,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "ctrl+u":
 		return m.undoLast()
+
+	case "ctrl+o":
+		return m.openSettings()
 
 	// ── Commit BPM (Ctrl+1) ───────────────────────────────────────────────────
 	case "ctrl+1":
@@ -425,4 +474,70 @@ func (m Model) undoLast() (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// openSettings transitions the model into StateSettings and focuses the first
+// input field (Music Folder Path).
+func (m Model) openSettings() (tea.Model, tea.Cmd) {
+	m.state = StateSettings
+	m.settingsFocusIndex = 0
+	m.settingsMusicFolder.SetValue(m.cfg.MusicFolder)
+	m.settingsJsonPath.SetValue(m.cfg.JsonPath)
+	// Focus the first field; textinput.Focus() returns a Cmd for cursor blink.
+	cmd := m.settingsMusicFolder.Focus()
+	m.settingsJsonPath.Blur()
+	return m, cmd
+}
+
+// handleSettingsKey dispatches keyboard input while StateSettings is active.
+func (m Model) handleSettingsKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+
+	case "ctrl+c":
+		// Flush any pending changes then quit.
+		_ = m.providerRef.SaveState(m.queue.Tasks)
+		m.engine.Close()
+		return m, tea.Quit
+
+	case "esc":
+		// Discard changes and return to the review screen.
+		m.state = StateReviewing
+		m.settingsMusicFolder.Blur()
+		m.settingsJsonPath.Blur()
+		return m, nil
+
+	case "tab", "shift+tab":
+		// Toggle focus between the two input fields.
+		if m.settingsFocusIndex == 0 {
+			m.settingsFocusIndex = 1
+			m.settingsMusicFolder.Blur()
+			cmd := m.settingsJsonPath.Focus()
+			return m, cmd
+		}
+		m.settingsFocusIndex = 0
+		m.settingsJsonPath.Blur()
+		cmd := m.settingsMusicFolder.Focus()
+		return m, cmd
+
+	case "enter":
+		// Save: update cfg, update providerRef, dismiss overlay, persist to disk,
+		// and reload queue (Q1 human decision: Option B — persist to disk).
+		m.cfg.MusicFolder = m.settingsMusicFolder.Value()
+		m.cfg.JsonPath = m.settingsJsonPath.Value()
+		m.providerRef.Config.MusicFolder = m.cfg.MusicFolder
+		m.providerRef.Config.JsonPath = m.cfg.JsonPath
+		m.state = StateReviewing
+		m.settingsMusicFolder.Blur()
+		m.settingsJsonPath.Blur()
+		return m, tea.Batch(saveSettingsCmd(m.cfg), reloadQueueCmd(m.providerRef))
+	}
+
+	// Forward all other keys to the focused input.
+	var cmd tea.Cmd
+	if m.settingsFocusIndex == 0 {
+		m.settingsMusicFolder, cmd = m.settingsMusicFolder.Update(msg)
+	} else {
+		m.settingsJsonPath, cmd = m.settingsJsonPath.Update(msg)
+	}
+	return m, cmd
 }

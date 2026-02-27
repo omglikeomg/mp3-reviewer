@@ -1,11 +1,16 @@
 package tui
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"song-reviewer/internal/api"
@@ -25,6 +30,10 @@ const (
 	// StateGenreSelection is shown when the user presses Enter or Space
 	// to assign a genre to the current song.
 	StateGenreSelection
+
+	// StateSettings is shown when the user presses Ctrl-O to open the Settings overlay.
+	// It presents two textinput fields for MusicFolder and JsonPath.
+	StateSettings
 )
 
 // genreStep tracks which selection step the genre modal is on.
@@ -127,6 +136,21 @@ type YearWrittenMsg struct {
 	Err  error
 }
 
+// QueueReloadedMsg is returned by reloadQueueCmd after re-reading the JSON file.
+// On success Tasks contains the newly loaded slice; Err is nil.
+// On failure Tasks is nil and Err describes what went wrong.
+type QueueReloadedMsg struct {
+	Tasks []domain.Task
+	Err   error
+}
+
+// SettingsSavedMsg is returned by saveSettingsCmd after writing the updated
+// MusicFolder and JsonPath back to config/settings.json.
+// Err is non-nil if the write failed.
+type SettingsSavedMsg struct {
+	Err error
+}
+
 // genreItem is a single entry in the bubbles/list for genre selection.
 // It implements the list.Item interface.
 type genreItem struct {
@@ -137,6 +161,19 @@ func (g genreItem) Title() string       { return g.title }
 func (g genreItem) Description() string { return "" }
 func (g genreItem) FilterValue() string { return g.title }
 
+// AudioPlayer is the subset of *audio.Engine methods used by the TUI.
+// Declaring this interface in the tui package (rather than audio) allows the TUI
+// to be tested with a mock without importing a real audio device.
+// *audio.Engine satisfies this interface automatically via Go structural typing —
+// no changes are needed in internal/audio.
+type AudioPlayer interface {
+	Play(path string) error
+	Seek(delta time.Duration) error
+	TogglePause()
+	GetState() audio.PlaybackState
+	Close()
+}
+
 // Model is the root Bubble Tea model for the Song Reviewer TUI.
 // It owns all mutable state; Update returns a new copy on each message.
 type Model struct {
@@ -145,7 +182,9 @@ type Model struct {
 
 	// engine is the audio playback engine. It is shared by reference because
 	// it owns an OS audio device handle that must not be duplicated.
-	engine *audio.Engine
+	// The AudioPlayer interface allows tests to substitute a mock without a
+	// real OS audio device.
+	engine AudioPlayer
 
 	// providerRef is a reference to the ManualReviewProvider used at startup.
 	// It is stored here so saveStateCmd can call SaveState without capturing
@@ -215,13 +254,25 @@ type Model struct {
 
 	// pendingInit holds the initial command batch returned by Init().
 	pendingInit tea.Cmd
+
+	// ── Settings overlay fields ───────────────────────────────────────────────
+
+	// settingsMusicFolder is the textinput component for the Music Folder Path field.
+	settingsMusicFolder textinput.Model
+
+	// settingsJsonPath is the textinput component for the JSON Review Path field.
+	settingsJsonPath textinput.Model
+
+	// settingsFocusIndex indicates which settings field (0 = MusicFolder, 1 = JsonPath)
+	// currently has focus.
+	settingsFocusIndex int
 }
 
 // New constructs the initial Model from the given queue, engine, config, and provider.
 // It stores the startup command batch (auto-play + first tick + spinner tick +
 // initial year/BPM fetch) in pendingInit so that Init() can return them inside the
 // Bubble Tea event loop.
-func New(queue domain.ReviewQueue, engine *audio.Engine, cfg domain.AppConfig, p provider.ManualReviewProvider) Model {
+func New(queue domain.ReviewQueue, engine AudioPlayer, cfg domain.AppConfig, p provider.ManualReviewProvider) Model {
 	prog := progress.New(
 		progress.WithDefaultGradient(),
 		progress.WithoutPercentage(),
@@ -262,6 +313,23 @@ func New(queue domain.ReviewQueue, engine *audio.Engine, cfg domain.AppConfig, p
 			cmds = append(cmds, fetchBPMCmd(task.Artist, task.Title, cfg.ApiKeys.MusicBrainzUserAgent))
 		}
 	}
+
+	// Initialise settings textinput components.
+	musicFolderInput := textinput.New()
+	musicFolderInput.Placeholder = "e.g. /Users/you/Music"
+	musicFolderInput.CharLimit = 512
+	musicFolderInput.Width = 60
+	musicFolderInput.SetValue(cfg.MusicFolder)
+
+	jsonPathInput := textinput.New()
+	jsonPathInput.Placeholder = "e.g. ./data/manual_review.json"
+	jsonPathInput.CharLimit = 512
+	jsonPathInput.Width = 60
+	jsonPathInput.SetValue(cfg.JsonPath)
+
+	m.settingsMusicFolder = musicFolderInput
+	m.settingsJsonPath = jsonPathInput
+	m.settingsFocusIndex = 0
 
 	m.pendingInit = tea.Batch(cmds...)
 	return m
@@ -325,7 +393,7 @@ func tickCmd() tea.Cmd {
 }
 
 // playCmd returns a Bubble Tea command that calls engine.Play(path).
-func playCmd(engine *audio.Engine, path string) tea.Cmd {
+func playCmd(engine AudioPlayer, path string) tea.Cmd {
 	return func() tea.Msg {
 		err := engine.Play(path)
 		return PlayErrMsg{Err: err}
@@ -382,5 +450,77 @@ func writeYearCmd(path, year string) tea.Cmd {
 	return func() tea.Msg {
 		err := metadata.WriteYear(path, year)
 		return YearWrittenMsg{Year: year, Err: err}
+	}
+}
+
+// reloadQueueCmd returns a Bubble Tea command that re-reads the review JSON file
+// using the provided ManualReviewProvider and returns the result as a QueueReloadedMsg.
+func reloadQueueCmd(p provider.ManualReviewProvider) tea.Cmd {
+	return func() tea.Msg {
+		tasks, err := p.GetTasks()
+		return QueueReloadedMsg{Tasks: tasks, Err: err}
+	}
+}
+
+// saveSettingsCmd returns a Bubble Tea command that writes the updated MusicFolder
+// and JsonPath back to config/settings.json. It preserves all other config fields
+// by reading the existing file first. Uses the same atomic temp-file + rename
+// pattern as SaveState to prevent corruption.
+func saveSettingsCmd(cfg domain.AppConfig) tea.Cmd {
+	return func() tea.Msg {
+		const path = "config/settings.json"
+
+		// Read the existing file so we preserve fields we don't own
+		// (GenreList, ApiKeys, SeekDeltaSeconds, etc.).
+		existing := cfg
+		if data, err := os.ReadFile(path); err == nil {
+			// Best-effort parse; if it fails we fall back to writing cfg as-is.
+			_ = json.Unmarshal(data, &existing)
+			// Always use the caller-supplied MusicFolder and JsonPath.
+			existing.MusicFolder = cfg.MusicFolder
+			existing.JsonPath = cfg.JsonPath
+		}
+
+		out, err := json.MarshalIndent(existing, "", "  ")
+		if err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: marshalling: %w", err)}
+		}
+
+		// Ensure config directory exists.
+		if err := os.MkdirAll("config", 0700); err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: creating config dir: %w", err)}
+		}
+
+		tmpDir := filepath.Join("config", ".tmp")
+		if err := os.MkdirAll(tmpDir, 0700); err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: creating temp dir: %w", err)}
+		}
+
+		tmp, err := os.CreateTemp(tmpDir, "settings_*.json.tmp")
+		if err != nil {
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: creating temp file: %w", err)}
+		}
+		tmpName := tmp.Name()
+
+		if _, err := tmp.Write(out); err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmpName)
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: writing temp file: %w", err)}
+		}
+		if err := tmp.Sync(); err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmpName)
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: syncing temp file: %w", err)}
+		}
+		if err := tmp.Close(); err != nil {
+			_ = os.Remove(tmpName)
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: closing temp file: %w", err)}
+		}
+		if err := os.Rename(tmpName, path); err != nil {
+			_ = os.Remove(tmpName)
+			return SettingsSavedMsg{Err: fmt.Errorf("saveSettingsCmd: renaming temp file: %w", err)}
+		}
+
+		return SettingsSavedMsg{Err: nil}
 	}
 }

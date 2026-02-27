@@ -17,16 +17,20 @@ func main() {
 	// ── Load configuration ────────────────────────────────────────────────────
 	cfg, err := loadConfig("config/settings.json")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "song-reviewer: failed to load config: %v\n", err)
-		os.Exit(1)
+		// Non-fatal: warn but continue with defaults so the app starts even without
+		// a settings file (the user can configure paths via the Settings overlay).
+		fmt.Fprintf(os.Stderr, "song-reviewer: warning: could not load config (%v) — using defaults\n", err)
+		cfg = defaultConfig()
 	}
 
 	// ── Load review queue ─────────────────────────────────────────────────────
 	p := provider.ManualReviewProvider{Config: cfg}
 	tasks, err := p.GetTasks()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "song-reviewer: failed to load review queue: %v\n", err)
-		os.Exit(1)
+		// Non-fatal: warn and start with an empty queue. The user can reload via
+		// the Settings overlay (Ctrl-O) after correcting the paths.
+		fmt.Fprintf(os.Stderr, "song-reviewer: warning: could not load review queue (%v) — starting with empty queue\n", err)
+		tasks = []domain.Task{}
 	}
 
 	queue := domain.ReviewQueue{
@@ -74,4 +78,16 @@ func loadConfig(path string) (domain.AppConfig, error) {
 		return domain.AppConfig{}, fmt.Errorf("parsing %q: %w", path, err)
 	}
 	return cfg, nil
+}
+
+// defaultConfig returns a safe AppConfig used when settings.json is missing or
+// unreadable. The user can update MusicFolder and JsonPath via the Ctrl-O
+// Settings overlay at runtime.
+func defaultConfig() domain.AppConfig {
+	return domain.AppConfig{
+		MusicFolder:      "",
+		JsonPath:         "./data/manual_review.json",
+		GenreList:        []string{},
+		SeekDeltaSeconds: 30,
+	}
 }
