@@ -23,5 +23,6 @@ Provide the user with "Suggested" metadata for Year and BPM via `Ctrl-1` and `Ct
 - [ ] Implement BPM fetching logic (or Tap Tempo fallback).
 - [ ] Update `tui/view.go` to display these extra metadata fields.
 - [ ] Ensure API calls are non-blocking and use `tea.Msg` to return data to the UI.
-- [ ] Update `architecture-breakdown.md` to document the tagging strategy.
+- [ ] Update `agent-development/agent-specs/architecture-breakdown.md` to document the tagging strategy.
 - [ ] Update `README.md` with latest considerations.
+- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.

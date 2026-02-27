@@ -1,42 +1,43 @@
 package tui
 
 import (
+	"fmt"
+	"math"
+	"time"
+
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Init satisfies the tea.Model interface. It returns the pendingInit command
-// batch that was stored by New() — this is the canonical Bubble Tea pattern
-// for dispatching startup commands (auto-play + first tick) inside the event loop.
-// After Init returns the batch, pendingInit is cleared to avoid re-issuing on
-// any future model reconstruction.
+// batch that was stored by New() — auto-play + first tick + spinner + year/BPM fetch.
 func (m Model) Init() tea.Cmd {
 	cmd := m.pendingInit
 	m.pendingInit = nil
 	return cmd
 }
 
-// Update is the central message dispatcher. It receives every message Bubble Tea
-// delivers — keypresses, timer ticks, window resizes, and custom messages from
-// background commands — and returns the next model state plus any new commands.
+// Update is the central message dispatcher.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Leave a margin so the progress bar doesn't touch terminal edges.
 		m.progress.Width = msg.Width - 4
-		// Resize genre list if it is currently showing.
 		if m.state == StateGenreSelection {
 			m.genreList.SetWidth(msg.Width - 4)
 		}
 		return m, nil
 
 	case TickMsg:
-		// Refresh the cached playback state so View() stays pure (no lock calls).
 		m.playbackState = m.engine.GetState()
-		// Re-queue the ticker immediately so the next tick arrives in 100ms.
 		return m, tickCmd()
+
+	case spinner.TickMsg:
+		var spinCmd tea.Cmd
+		m.spinner, spinCmd = m.spinner.Update(msg)
+		return m, spinCmd
 
 	case PlayErrMsg:
 		if msg.Err != nil {
@@ -48,24 +49,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TagWrittenMsg:
 		if msg.Err != nil {
-			// Tag write failed — show the error but stay on the review screen
-			// so the user can retry by re-opening the genre modal.
 			m.lastPlayErr = msg.Err
 			m.state = StateReviewing
 			return m, nil
 		}
 
-		// Tag write succeeded — update the task in the queue.
 		idx := m.queue.CurrentIndex
 		if idx >= 0 && idx < len(m.queue.Tasks) {
 			m.queue.Tasks[idx].Genre1 = msg.Primary
 			m.queue.Tasks[idx].Genre2 = msg.Secondary
 		}
 
-		// Persist the updated queue to disk asynchronously.
 		saveCmd := saveStateCmd(m.providerRef, m.queue.Tasks)
-
-		// Advance to the next song.
 		nextModel, nextCmd := m.skipToNext()
 		return nextModel, tea.Batch(saveCmd, nextCmd)
 
@@ -77,11 +72,72 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case YearFetchedMsg:
+		if msg.Err != nil {
+			m.enrichYearStatus = enrichError
+			m.enrichYearValue = ""
+		} else if msg.Year == "" {
+			// Successful request but no year found in MusicBrainz.
+			m.enrichYearStatus = enrichIdle
+			m.enrichYearValue = ""
+		} else {
+			m.enrichYearStatus = enrichFound
+			m.enrichYearValue = msg.Year
+		}
+		return m, nil
+
+	case BPMFetchedMsg:
+		if msg.Err != nil {
+			// MusicBrainz BPM fetch failed — fall back to tap tempo.
+			// Set to idle so the user can use tap tempo.
+			m.enrichBPMStatus = enrichIdle
+			m.enrichBPMValue = ""
+		} else if msg.BPM == "" {
+			// No BPM found in MusicBrainz — fall back to tap tempo.
+			m.enrichBPMStatus = enrichIdle
+			m.enrichBPMValue = ""
+		} else {
+			// BPM found from MusicBrainz — ready to commit.
+			m.enrichBPMStatus = enrichFound
+			m.enrichBPMValue = msg.BPM
+		}
+		return m, nil
+
+	case BPMWrittenMsg:
+		if msg.Err != nil {
+			m.enrichBPMStatus = enrichError
+		} else {
+			m.enrichBPMStatus = enrichCommitted
+			idx := m.queue.CurrentIndex
+			if idx >= 0 && idx < len(m.queue.Tasks) {
+				m.queue.Tasks[idx].BPM = msg.BPM
+			}
+			// Q5 human decision: call SaveState after BPM commit to keep
+			// the JSON data source in sync with the ID3 tag write.
+			return m, saveStateCmd(m.providerRef, m.queue.Tasks)
+		}
+		return m, nil
+
+	case YearWrittenMsg:
+		if msg.Err != nil {
+			m.enrichYearStatus = enrichError
+		} else {
+			m.enrichYearStatus = enrichCommitted
+			idx := m.queue.CurrentIndex
+			if idx >= 0 && idx < len(m.queue.Tasks) {
+				m.queue.Tasks[idx].Year = msg.Year
+			}
+			// Q5 human decision: call SaveState after Year commit to keep
+			// the JSON data source in sync with the ID3 tag write.
+			return m, saveStateCmd(m.providerRef, m.queue.Tasks)
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
 
-	// In StateGenreSelection, pass unhandled non-key messages to the list component.
+	// In StateGenreSelection, pass unhandled non-key messages to the list.
 	if m.state == StateGenreSelection {
 		var listCmd tea.Cmd
 		m.genreList, listCmd = m.genreList.Update(msg)
@@ -91,12 +147,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleKey dispatches keyboard input to the appropriate action.
-// It is extracted from Update to keep the switch statement readable.
-// Key behaviour varies by current AppState (e.g. Esc has different meanings
-// in StateReviewing vs StateGenreSelection).
+// handleKey dispatches keyboard input based on current AppState.
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// ── Genre Selection state — intercept Enter/Esc, delegate the rest ────────
+	// ── Genre Selection state ─────────────────────────────────────────────────
 	if m.state == StateGenreSelection {
 		switch msg.String() {
 		case "ctrl+c":
@@ -104,16 +157,13 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "esc":
-			// Cancel genre selection and return to the review screen without skipping.
 			m.state = StateReviewing
 			return m, nil
 
 		case "enter":
-			// Confirm the currently highlighted genre item.
 			return m.confirmGenreSelection()
 		}
 
-		// Delegate all other keys (arrow keys, filter typing, etc.) to the list.
 		var listCmd tea.Cmd
 		m.genreList, listCmd = m.genreList.Update(msg)
 		return m, listCmd
@@ -122,14 +172,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// ── StateReviewing — full keybinding set ──────────────────────────────────
 	switch msg.String() {
 
-	// ── Quit ──────────────────────────────────────────────────────────────────
 	case "ctrl+c":
-		// Close the audio device before exiting. engine.Close() is safe to call
-		// even if nothing is playing.
 		m.engine.Close()
 		return m, tea.Quit
 
-	// ── Seek ──────────────────────────────────────────────────────────────────
 	case "left":
 		_ = m.engine.Seek(-m.seekDelta)
 		return m, nil
@@ -138,55 +184,170 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		_ = m.engine.Seek(m.seekDelta)
 		return m, nil
 
-	// ── Pause / Resume ────────────────────────────────────────────────────────
 	case "p":
 		m.engine.TogglePause()
 		return m, nil
 
-	// ── Genre Selection ───────────────────────────────────────────────────────
 	case "enter", " ":
-		// Open the genre modal for Primary Genre selection.
 		m = m.openGenreModal()
 		return m, nil
 
-	// ── Skip (Esc) ────────────────────────────────────────────────────────────
 	case "esc":
 		return m.skipToNext()
 
-	// ── Undo (Ctrl+U) ─────────────────────────────────────────────────────────
 	case "ctrl+u":
 		return m.undoLast()
+
+	// ── Commit BPM (Ctrl+1) ───────────────────────────────────────────────────
+	case "ctrl+1":
+		if m.enrichBPMStatus != enrichFound {
+			// Nothing ready to commit — ignore.
+			return m, nil
+		}
+		if m.queue.CurrentIndex < 0 || m.queue.CurrentIndex >= len(m.queue.Tasks) {
+			return m, nil
+		}
+		path := m.queue.Tasks[m.queue.CurrentIndex].FilePath
+		return m, writeBPMCmd(path, m.enrichBPMValue)
+
+	// ── Commit Year (Ctrl+2) ──────────────────────────────────────────────────
+	case "ctrl+2":
+		if m.enrichYearStatus != enrichFound {
+			// Nothing ready to commit — ignore.
+			return m, nil
+		}
+		if m.queue.CurrentIndex < 0 || m.queue.CurrentIndex >= len(m.queue.Tasks) {
+			return m, nil
+		}
+		path := m.queue.Tasks[m.queue.CurrentIndex].FilePath
+		return m, writeYearCmd(path, m.enrichYearValue)
+
+	// ── Tap Tempo (t) ─────────────────────────────────────────────────────────
+	case "t":
+		return m.recordTap()
 	}
 
 	return m, nil
 }
 
+// recordTap records a tap-tempo keypress timestamp and, when at least minTapCount
+// taps (Q3 human decision: 8 taps = 7 intervals) have been collected, calculates
+// the BPM from the average inter-tap interval.
+//
+// Stale tap detection: taps with a gap > staleTapWindow (3s) since the last tap
+// reset the sequence (Q4 human decision).
+//
+// Irregularity detection: if any individual inter-tap interval deviates from
+// the running average by more than maxTapDeviation (40%), the sequence is
+// considered too irregular and is reset. The user can see the remaining tap count
+// in the UI and always use Esc to go back (Q3 human decision).
+func (m Model) recordTap() (tea.Model, tea.Cmd) {
+	now := time.Now()
+
+	// Discard stale taps (gap > staleTapWindow since the last tap means a new sequence).
+	if len(m.tapTimes) > 0 {
+		last := m.tapTimes[len(m.tapTimes)-1]
+		if now.Sub(last) > staleTapWindow {
+			m.tapTimes = nil
+		}
+	}
+
+	m.tapTimes = append(m.tapTimes, now)
+
+	// Check for irregular tapping once we have at least 2 intervals (3 taps).
+	// If any interval deviates too much from the current average, reset the
+	// sequence so the user gets a clean start.
+	if len(m.tapTimes) >= 3 {
+		if m.isTappingIrregular() {
+			// Reset: keep only the most recent tap as the start of a new sequence.
+			lastTap := m.tapTimes[len(m.tapTimes)-1]
+			m.tapTimes = []time.Time{lastTap}
+			m.enrichBPMStatus = enrichLoading
+			m.enrichBPMValue = ""
+			return m, nil
+		}
+	}
+
+	// Need at least minTapCount taps (minTapCount-1 intervals) for a stable BPM.
+	if len(m.tapTimes) < minTapCount {
+		m.enrichBPMStatus = enrichLoading
+		return m, nil
+	}
+
+	// Calculate average interval between consecutive taps.
+	var totalInterval time.Duration
+	for i := 1; i < len(m.tapTimes); i++ {
+		totalInterval += m.tapTimes[i].Sub(m.tapTimes[i-1])
+	}
+	avgInterval := totalInterval / time.Duration(len(m.tapTimes)-1)
+
+	if avgInterval <= 0 {
+		return m, nil
+	}
+
+	// BPM = 60 seconds / average interval in seconds.
+	bpm := math.Round(60.0 / avgInterval.Seconds())
+	m.enrichBPMValue = fmt.Sprintf("%d", int(bpm))
+	m.enrichBPMStatus = enrichFound
+
+	return m, nil
+}
+
+// isTappingIrregular checks whether the current tap sequence has any interval
+// that deviates from the running average by more than maxTapDeviation.
+// Returns true if the tapping is too irregular and the sequence should be reset.
+// Requires at least 3 taps (2 intervals) to be meaningful.
+func (m Model) isTappingIrregular() bool {
+	n := len(m.tapTimes)
+	if n < 3 {
+		return false
+	}
+
+	// Calculate average interval.
+	var totalInterval time.Duration
+	intervals := make([]time.Duration, 0, n-1)
+	for i := 1; i < n; i++ {
+		d := m.tapTimes[i].Sub(m.tapTimes[i-1])
+		intervals = append(intervals, d)
+		totalInterval += d
+	}
+	avgInterval := totalInterval / time.Duration(len(intervals))
+
+	if avgInterval <= 0 {
+		return true
+	}
+
+	// Check each interval against the average.
+	avgSeconds := avgInterval.Seconds()
+	for _, d := range intervals {
+		deviation := math.Abs(d.Seconds()-avgSeconds) / avgSeconds
+		if deviation > maxTapDeviation {
+			return true
+		}
+	}
+
+	return false
+}
+
 // confirmGenreSelection handles the user pressing Enter on a genre list item.
-// On stepPrimary it records the selection and transitions to stepSecondary,
-// rebuilding the list with a [NONE] option prepended.
-// On stepSecondary it fires writeTagsCmd with both genre selections.
 func (m Model) confirmGenreSelection() (tea.Model, tea.Cmd) {
 	selected, ok := m.genreList.SelectedItem().(genreItem)
 	if !ok {
-		// No item highlighted (empty list) — ignore.
 		return m, nil
 	}
 
 	if m.genreStep == stepPrimary {
-		// Record primary and transition to secondary step.
 		m.selectedPrimary = selected.title
 		m.genreStep = stepSecondary
 		m.genreList = makeGenreList(m.cfg.GenreList, true, m.width)
 		return m, nil
 	}
 
-	// stepSecondary — we have both selections; fire the tag write.
 	secondary := selected.title
 	if secondary == "[NONE]" {
 		secondary = ""
 	}
 
-	// Close the modal immediately for snappy UX; the write runs in the background.
 	m.state = StateReviewing
 
 	if m.queue.CurrentIndex < 0 || m.queue.CurrentIndex >= len(m.queue.Tasks) {
@@ -198,42 +359,70 @@ func (m Model) confirmGenreSelection() (tea.Model, tea.Cmd) {
 }
 
 // skipToNext advances the queue to the next task, starts playing it, and
-// returns the updated model and a playCmd. If no next task exists (end of
-// queue), it is a no-op (Q3 decision: Option B — stay silently on last song).
+// resets enrichment state. Fires fetchYearCmd and fetchBPMCmd for the new song
+// if artist/title are available. If no next task exists (end of queue), it is
+// a no-op.
 func (m Model) skipToNext() (tea.Model, tea.Cmd) {
 	nextIndex := m.queue.CurrentIndex + 1
 	if nextIndex >= len(m.queue.Tasks) {
-		// End of queue — nothing to do.
 		return m, nil
 	}
 
-	// Push the current task onto the history stack before advancing.
 	if m.queue.CurrentIndex >= 0 && m.queue.CurrentIndex < len(m.queue.Tasks) {
 		m.queue.History = append(m.queue.History, m.queue.Tasks[m.queue.CurrentIndex])
 	}
 
 	m.queue.CurrentIndex = nextIndex
 	m.lastPlayErr = nil
-	return m, playCmd(m.engine, m.queue.Tasks[nextIndex].FilePath)
+
+	// Reset enrichment for the incoming song.
+	m = m.resetEnrichment()
+
+	nextTask := m.queue.Tasks[nextIndex]
+	var cmds []tea.Cmd
+	cmds = append(cmds, playCmd(m.engine, nextTask.FilePath))
+
+	// Fire year and BPM fetches immediately if we have artist/title metadata.
+	if nextTask.Artist != "" || nextTask.Title != "" {
+		m.enrichYearStatus = enrichLoading
+		m.enrichBPMStatus = enrichLoading
+		cmds = append(cmds, fetchYearCmd(nextTask.Artist, nextTask.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+		cmds = append(cmds, fetchBPMCmd(nextTask.Artist, nextTask.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 // undoLast pops the most recent task off the History stack, rewinds
-// CurrentIndex by one, and replays that song.
+// CurrentIndex by one, and replays that song. Enrichment is reset and
+// re-fetched (Q6 human decision: Option A).
 func (m Model) undoLast() (tea.Model, tea.Cmd) {
 	if len(m.queue.History) == 0 {
-		// Nothing to undo.
 		return m, nil
 	}
 
-	// Pop from history.
 	lastIdx := len(m.queue.History) - 1
 	m.queue.History = m.queue.History[:lastIdx]
 
-	// Rewind index (guard against going below 0).
 	if m.queue.CurrentIndex > 0 {
 		m.queue.CurrentIndex--
 	}
 
 	m.lastPlayErr = nil
-	return m, playCmd(m.engine, m.queue.Tasks[m.queue.CurrentIndex].FilePath)
+
+	// Reset enrichment when rewinding.
+	m = m.resetEnrichment()
+
+	prevTask := m.queue.Tasks[m.queue.CurrentIndex]
+	var cmds []tea.Cmd
+	cmds = append(cmds, playCmd(m.engine, prevTask.FilePath))
+
+	if prevTask.Artist != "" || prevTask.Title != "" {
+		m.enrichYearStatus = enrichLoading
+		m.enrichBPMStatus = enrichLoading
+		cmds = append(cmds, fetchYearCmd(prevTask.Artist, prevTask.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+		cmds = append(cmds, fetchBPMCmd(prevTask.Artist, prevTask.Title, m.cfg.ApiKeys.MusicBrainzUserAgent))
+	}
+
+	return m, tea.Batch(cmds...)
 }

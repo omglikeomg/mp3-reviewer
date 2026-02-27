@@ -1,0 +1,123 @@
+%% Software Architecture — Packages, Public APIs, Dependencies, and Call Flows
+%% Source of truth: the actual Go source code (not specs).
+%%
+%% Updated after Task 5: enrichment features (MusicBrainz year/BPM fetch,
+%% tap-tempo BPM, Ctrl+1/Ctrl+2 commit, spinner, WriteBPM, WriteYear,
+%% FetchYear, FetchBPM) are now implemented.
+
+flowchart TD
+    subgraph CMD["cmd/reviewer"]
+        main["main()"]
+        loadConfig["loadConfig(path) AppConfig"]
+    end
+
+    subgraph DOMAIN["internal/domain"]
+        Task["Task\n- FilePath, Title, Artist, Album\n- Genre1, Genre2, Year, BPM"]
+        AppConfig["AppConfig\n- MusicFolder, JsonPath\n- GenreList, SeekDeltaSeconds\n- ApiKeys.MusicBrainzUserAgent"]
+        ReviewQueue["ReviewQueue\n- Tasks: list of Task\n- CurrentIndex: int\n- History: list of Task"]
+    end
+
+    subgraph PROVIDER["internal/provider"]
+        TaskProviderIface["TaskProvider interface\n- GetTasks: returns list of Task, error"]
+        ManualReviewProvider["ManualReviewProvider\n- Config: AppConfig\n- GetTasks: returns list of Task, error\n- SaveState tasks: error\n  persists genres, BPM, year"]
+        manualReviewFile["manualReviewFile\n- ManualReview: list of reviewEntry"]
+        reviewEntry["reviewEntry\n- FilePath, Reason, Confidence\n- Status, PrimaryGenre, SecondaryGenre\n- BPM, Year"]
+    end
+
+    subgraph AUDIO["internal/audio"]
+        Engine["Engine\n- Play path: error\n- Seek delta: error\n- TogglePause\n- GetState: PlaybackState\n- Close"]
+        PlaybackState["PlaybackState\n- Progress: float64\n- Elapsed, Total, Position: string"]
+    end
+
+    subgraph TUI["internal/tui"]
+        Model["Model\n- queue: ReviewQueue\n- engine: Engine ptr\n- providerRef: ManualReviewProvider\n- progress, genreList, spinner\n- playbackState: PlaybackState\n- state: AppState\n- genreStep, selectedPrimary\n- cfg: AppConfig\n- enrichYearStatus, enrichYearValue\n- enrichBPMStatus, enrichBPMValue\n- tapTimes: list of Time"]
+        MVU["MVU Cycle\n- Init: tea.Cmd\n- Update msg: Model, Cmd\n- View: string"]
+        Helpers["Helpers\n- handleKey\n- confirmGenreSelection\n- skipToNext + resetEnrichment\n- undoLast + resetEnrichment\n- openGenreModal\n- makeGenreList\n- resetEnrichment\n- recordTap\n- isTappingIrregular"]
+        CmdFactories["Cmd Factories\n- tickCmd\n- playCmd engine, path\n- writeTagsCmd path, pri, sec\n- saveStateCmd provider, tasks\n- fetchYearCmd artist, title, ua\n- fetchBPMCmd artist, title, ua\n- writeBPMCmd path, bpm\n- writeYearCmd path, year"]
+        MsgTypes["Msg Types\n- TickMsg\n- spinner.TickMsg\n- PlayErrMsg\n- TagWrittenMsg\n- SaveStateErrMsg\n- YearFetchedMsg\n- BPMFetchedMsg\n- BPMWrittenMsg\n- YearWrittenMsg"]
+        Views["Views\n- viewReviewing\n- viewEnrichmentPanel\n- enrichFieldView\n- bpmLoadingText\n- viewGenreModal"]
+    end
+
+    subgraph METADATA["internal/metadata"]
+        WriteTags["WriteTags path, primary, secondary: error\n- Replaces TCON frames\n- Writes TXXX TGENRE2 if secondary"]
+        WriteBPM["WriteBPM path, bpm: error\n- Writes TBPM ID3v2 frame"]
+        WriteYear["WriteYear path, year: error\n- Writes TYER v2.3 or TDRC v2.4\n- via tag.SetYear"]
+    end
+
+    subgraph API["internal/api"]
+        FetchYear["FetchYear artist, title, userAgent: string, error\n- MusicBrainz recording search\n- inc=release-groups+tags\n- Picks earliest first-release-date\n- Returns 4-digit year"]
+        FetchBPM["FetchBPM artist, title, userAgent: string, error\n- MusicBrainz recording search\n- Checks user-contributed tags\n- extractBPMFromTag helper\n- Returns BPM if tag in 20-300 range\n- Usually empty, fallback to Tap Tempo"]
+        MBInternal["Internal helpers\n- buildRecordingQuery\n- doRecordingSearch\n- extractBPMFromTag\n- musicBrainzBaseURL var\n  overridable in tests"]
+    end
+
+    %% Startup Flow
+    main -->|"1. reads settings.json"| loadConfig
+    loadConfig -->|"returns"| AppConfig
+    main -->|"2. creates provider"| ManualReviewProvider
+    main -->|"3. provider.GetTasks"| TaskProviderIface
+    ManualReviewProvider -.->|"implements"| TaskProviderIface
+    main -->|"4. builds ReviewQueue"| ReviewQueue
+    main -->|"5. audio.NewEngine"| Engine
+    main -->|"6. tui.New queue, engine, cfg, provider"| Model
+    main -->|"7. tea.NewProgram model .Run"| MVU
+    main -->|"8. engine.Close on exit"| Engine
+
+    %% TUI Internal Structure
+    Model --- MVU
+    Model --- Helpers
+    Model --- CmdFactories
+    Model --- MsgTypes
+    Model --- Views
+
+    %% Playback Flow
+    CmdFactories -->|"playCmd calls engine.Play"| Engine
+    Engine -->|"returns PlayErrMsg"| MsgTypes
+
+    %% Tick and Progress Flow
+    CmdFactories -->|"tickCmd fires TickMsg after 100ms"| MsgTypes
+    MVU -->|"TickMsg handler calls engine.GetState"| PlaybackState
+
+    %% Direct Calls in Update - fast, non-blocking
+    Helpers -->|"engine.Seek delta"| Engine
+    Helpers -->|"engine.TogglePause"| Engine
+    Helpers -->|"engine.Close on Ctrl+C"| Engine
+
+    %% Tag Write Flow
+    CmdFactories -->|"writeTagsCmd calls metadata.WriteTags"| WriteTags
+    WriteTags -->|"returns TagWrittenMsg"| MsgTypes
+
+    %% BPM Write Flow
+    CmdFactories -->|"writeBPMCmd calls metadata.WriteBPM"| WriteBPM
+    WriteBPM -->|"returns BPMWrittenMsg"| MsgTypes
+
+    %% Year Write Flow
+    CmdFactories -->|"writeYearCmd calls metadata.WriteYear"| WriteYear
+    WriteYear -->|"returns YearWrittenMsg"| MsgTypes
+
+    %% Save State Flow
+    CmdFactories -->|"saveStateCmd calls provider.SaveState"| ManualReviewProvider
+    ManualReviewProvider -->|"returns SaveStateErrMsg"| MsgTypes
+
+    %% MusicBrainz Year Fetch Flow
+    CmdFactories -->|"fetchYearCmd calls api.FetchYear"| FetchYear
+    FetchYear -->|"returns YearFetchedMsg"| MsgTypes
+
+    %% MusicBrainz BPM Fetch Flow
+    CmdFactories -->|"fetchBPMCmd calls api.FetchBPM"| FetchBPM
+    FetchBPM -->|"returns BPMFetchedMsg"| MsgTypes
+
+    %% API Internal
+    FetchYear --- MBInternal
+    FetchBPM --- MBInternal
+
+    %% Package Dependency Arrows
+    CMD -->|"imports"| DOMAIN
+    CMD -->|"imports"| PROVIDER
+    CMD -->|"imports"| AUDIO
+    CMD -->|"imports"| TUI
+    TUI -->|"imports"| DOMAIN
+    TUI -->|"imports"| AUDIO
+    TUI -->|"imports"| METADATA
+    TUI -->|"imports"| PROVIDER
+    TUI -->|"imports"| API
+    PROVIDER -->|"imports"| DOMAIN

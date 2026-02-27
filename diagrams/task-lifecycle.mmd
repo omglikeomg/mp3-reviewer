@@ -1,0 +1,198 @@
+%% Task Lifecycle — How a Task (Song) Moves Through the Review Pipeline
+%% Source of truth: the actual Go source code (not specs).
+%%
+%% Updated after Task 5: enrichment features (MusicBrainz year/BPM fetch,
+%% tap-tempo BPM, Ctrl+1/Ctrl+2 commit via WriteBPM/WriteYear, SaveState
+%% after enrichment commits) are now implemented.
+
+stateDiagram-v2
+    %% Loading Phase
+    [*] --> Loading : App starts
+
+    state Loading {
+        ReadJSON : ManualReviewProvider.GetTasks\nReads data/manual_review.json
+        ParseEntries : Parses manual_review array\ninto reviewEntry list\nincludes bpm and year fields
+        ResolvePaths : Resolves each filepath against\nAppConfig.MusicFolder\nPopulates Genre1/Genre2/BPM/Year from\npreviously saved fields
+        BuildQueue : main builds ReviewQueue\nTasks = Task list\nCurrentIndex = 0\nHistory = empty list
+
+        ReadJSON --> ParseEntries
+        ParseEntries --> ResolvePaths
+        ResolvePaths --> BuildQueue
+    }
+
+    Loading --> Queued : All tasks loaded into ReviewQueue
+
+    %% Queued Phase
+    Queued : Task sits in ReviewQueue.Tasks\nwaiting for its turn\nbased on CurrentIndex
+
+    Queued --> Active : CurrentIndex points to this task\nplayCmd fires engine.Play path\nresetEnrichment clears state\nfetchYearCmd + fetchBPMCmd fired\nif Artist or Title non-empty
+
+    %% Active / Reviewing Phase
+    state Active {
+        Playing : Audio plays via audio.Engine\nUser listens to identify genre
+        Seeking : User presses Left/Right arrow\nengine.Seek plus or minus seekDelta\nClamps or wraps position
+        Paused : User presses p\nengine.TogglePause
+
+        Playing --> Seeking : Left or Right key
+        Seeking --> Playing : Returns immediately
+        Playing --> Paused : p key
+        Paused --> Playing : p key
+    }
+
+    Active --> Enrichment : Background fetches complete\nor user starts tapping t key
+    Active --> GenreSelection : Enter or Space\nopenGenreModal
+    Active --> Skipped : Esc key\nskipToNext + resetEnrichment
+    Active --> UndoTarget : Ctrl+U on a later task\nundoLast + resetEnrichment
+
+    %% Enrichment Phase
+    state Enrichment {
+        state YearEnrichment {
+            YearFetch : fetchYearCmd fires on song load\nenrichYearStatus = enrichLoading\nspinner animates
+            YearFetchResult : YearFetchedMsg received
+            YearFound : enrichYearStatus = enrichFound\nenrichYearValue = 4-digit year\nshown in yellow
+            YearNotFound : enrichYearStatus = enrichIdle\nshown as not found in grey italic
+            YearError : enrichYearStatus = enrichError\nshown in red italic
+
+            YearFetch --> YearFetchResult
+            YearFetchResult --> YearFound : year found in MusicBrainz
+            YearFetchResult --> YearNotFound : no matching recording or date
+            YearFetchResult --> YearError : network or parse error
+        }
+
+        state BPMEnrichment {
+            BPMFetch : fetchBPMCmd fires on song load\nenrichBPMStatus = enrichLoading\nchecks MusicBrainz user tags
+            BPMFetchResult : BPMFetchedMsg received
+            BPMFoundAPI : enrichBPMStatus = enrichFound\nenrichBPMValue from MusicBrainz tag\nshown in yellow
+            BPMNotFoundAPI : enrichBPMStatus = enrichIdle\nfallback to Tap Tempo
+
+            TapTempo : User presses t key\nrecordTap appends timestamp\nenrichBPMStatus = enrichLoading\nUI shows tap count remaining
+            TapIrregular : isTappingIrregular detects\n>40% deviation from average\nsequence resets to last tap only
+            TapStale : Gap > 3 seconds since last tap\nsequence resets entirely
+            TapComplete : 8 taps collected\n7 intervals averaged\nBPM = 60 / avg interval\nenrichBPMStatus = enrichFound\nenrichBPMValue = calculated BPM
+
+            BPMFetch --> BPMFetchResult
+            BPMFetchResult --> BPMFoundAPI : BPM tag found in range 20-300
+            BPMFetchResult --> BPMNotFoundAPI : no BPM tag found
+            BPMNotFoundAPI --> TapTempo : user presses t
+            TapTempo --> TapIrregular : irregular tapping detected
+            TapTempo --> TapStale : gap > 3 seconds
+            TapIrregular --> TapTempo : user continues tapping
+            TapStale --> TapTempo : user resumes tapping
+            TapTempo --> TapComplete : 8th tap recorded
+        }
+    }
+
+    Enrichment --> CommitBPM : Ctrl+1 when enrichBPMStatus == enrichFound
+    Enrichment --> CommitYear : Ctrl+2 when enrichYearStatus == enrichFound
+    Enrichment --> GenreSelection : Enter or Space\nopenGenreModal
+    Enrichment --> Skipped : Esc key\nskipToNext + resetEnrichment
+
+    %% Commit BPM Phase
+    state CommitBPM {
+        WriteBPM : writeBPMCmd fires\nmetadata.WriteBPM path, bpm\nWrites TBPM ID3v2 frame
+        BPMWriteResult : BPMWrittenMsg returned\nCarries BPM string and Err
+
+        WriteBPM --> BPMWriteResult
+    }
+
+    state BPMWriteCheck <<choice>>
+    CommitBPM --> BPMWriteCheck
+
+    BPMWriteCheck --> BPMCommitted : BPMWrittenMsg.Err is nil
+    BPMWriteCheck --> BPMWriteError : BPMWrittenMsg.Err is not nil
+
+    BPMCommitted : enrichBPMStatus = enrichCommitted\nshown green with checkmark\ntask.BPM updated in queue\nsaveStateCmd fires\nJSON updated with bpm field
+    BPMWriteError : enrichBPMStatus = enrichError\nshown in red italic
+
+    BPMCommitted --> Active : Returns to active review
+    BPMWriteError --> Active : Returns to active review
+
+    %% Commit Year Phase
+    state CommitYear {
+        WriteYear : writeYearCmd fires\nmetadata.WriteYear path, year\nWrites TYER or TDRC ID3v2 frame
+        YearWriteResult : YearWrittenMsg returned\nCarries Year string and Err
+
+        WriteYear --> YearWriteResult
+    }
+
+    state YearWriteCheck <<choice>>
+    CommitYear --> YearWriteCheck
+
+    YearWriteCheck --> YearCommitted : YearWrittenMsg.Err is nil
+    YearWriteCheck --> YearWriteError : YearWrittenMsg.Err is not nil
+
+    YearCommitted : enrichYearStatus = enrichCommitted\nshown green with checkmark\ntask.Year updated in queue\nsaveStateCmd fires\nJSON updated with year field
+    YearWriteError : enrichYearStatus = enrichError\nshown in red italic
+
+    YearCommitted --> Active : Returns to active review
+    YearWriteError --> Active : Returns to active review
+
+    %% Genre Selection Phase
+    state GenreSelection {
+        PrimaryPick : Step 1 of 2\nUser selects Primary Genre\nfrom bubbles list\nNo NONE option
+
+        SecondaryPick : Step 2 of 2\nUser selects Secondary Genre\nNONE prepended to list\nPrimary shown in heading
+
+        PrimaryPick --> SecondaryPick : Enter\nrecords selectedPrimary\nrebuilds list with NONE
+    }
+
+    GenreSelection --> Active : Esc at any step\nCancel, no skip\nReturns to StateReviewing\nSong continues playing
+
+    GenreSelection --> TagWriting : Enter on Step 2\nconfirmGenreSelection\nfires writeTagsCmd path, primary, secondary
+
+    %% Tag Writing Phase
+    state TagWriting {
+        WriteID3 : metadata.WriteTags\nRemoves existing TCON frames\nWrites primary as first TCON\nWrites secondary as second TCON if non empty\nWrites TXXX TGENRE2 if secondary
+
+        TagResult : TagWrittenMsg returned\nCarries Primary, Secondary, Err
+        WriteID3 --> TagResult
+    }
+
+    state TagCheck <<choice>>
+    TagWriting --> TagCheck
+
+    TagCheck --> TagError : TagWrittenMsg.Err is not nil
+    TagCheck --> StatePersistence : TagWrittenMsg.Err is nil
+
+    %% Tag Error
+    TagError : Error shown in status bar\nUser returns to Active state\nCan retry by reopening genre modal
+    TagError --> Active : state = StateReviewing
+
+    %% State Persistence Phase
+    state StatePersistence {
+        UpdateTask : Update task in queue\nTasks idx Genre1 = primary\nTasks idx Genre2 = secondary
+
+        SaveJSON : saveStateCmd fires\nprovider.SaveState tasks\nMatches by relative filepath\nSets status = applied\nSets primary_genre\nSets secondary_genre\nPreserves bpm and year if set\nAtomic write via temp file plus rename
+
+        SaveResult : SaveStateErrMsg returned\nErr shown in status bar if not nil\nDoes NOT block advancement
+
+        UpdateTask --> SaveJSON
+        SaveJSON --> SaveResult
+    }
+
+    StatePersistence --> Advance : Concurrent with saveStateCmd\nskipToNext + resetEnrichment called immediately
+
+    %% Advance Phase
+    Advance : CurrentIndex increments\nCurrent task pushed onto History stack\nresetEnrichment clears Year/BPM state\nplayCmd fires for next task\nfetchYearCmd + fetchBPMCmd fire\nif next task has Artist or Title
+
+    Advance --> Queued : Next task becomes active\nCycle repeats
+
+    Advance --> EndOfQueue : nextIndex >= len Tasks\nskipToNext is no-op
+
+    %% Skip Phase
+    Skipped : Esc in StateReviewing\nNo tags written\nNo state persisted\nCurrent task pushed onto History\nCurrentIndex increments\nresetEnrichment clears Year/BPM state\nfetchYearCmd + fetchBPMCmd fire for next task
+
+    Skipped --> Queued : Next task becomes active\nplayCmd fires
+    Skipped --> EndOfQueue : nextIndex >= len Tasks\nskipToNext is no-op
+
+    %% Undo Phase
+    UndoTarget : Ctrl+U pressed on a subsequent task\nHistory stack popped\nCurrentIndex decremented\nresetEnrichment clears state\nplayCmd fires for this task\nfetchYearCmd + fetchBPMCmd re-fire\nQ6 decision: reset and re-fetch
+
+    UndoTarget --> Active : Task replays from beginning\nUser can re-review and re-tag\nEnrichment re-fetched fresh
+
+    %% End of Queue
+    EndOfQueue : All tasks reviewed or skipped\nApp stays on last song silently\nNo explicit done state in code\nUser can Ctrl+U to undo\nor Ctrl+C to quit
+
+    EndOfQueue --> UndoTarget : Ctrl+U\nundoLast + resetEnrichment rewinds
+
+    EndOfQueue --> [*] : Ctrl+C\nengine.Close\ntea.Quit

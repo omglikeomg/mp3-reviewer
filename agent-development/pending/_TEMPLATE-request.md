@@ -43,5 +43,6 @@
 - [ ] Check 1 (e.g., `go build ./...` succeeds with zero errors)
 - [ ] Check 2 (e.g., unit tests pass: `go test ./internal/provider/...`)
 - [ ] Check 3 (e.g., `README.md` updated with new configuration options)
-- [ ] Update `architecture-breakdown.md` if new packages or interfaces were introduced.
+- [ ] Update `agent-development/agent-specs/architecture-breakdown.md` if new packages or interfaces were introduced.
 - [ ] Update `README.md` with latest considerations.
+- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.

@@ -30,6 +30,8 @@ type reviewEntry struct {
 	Status         string `json:"status,omitempty"`
 	PrimaryGenre   string `json:"primary_genre,omitempty"`
 	SecondaryGenre string `json:"secondary_genre,omitempty"`
+	BPM            string `json:"bpm,omitempty"`
+	Year           string `json:"year,omitempty"`
 }
 
 // ManualReviewProvider reads a JSON file containing a "manual_review" array
@@ -59,6 +61,8 @@ func (p ManualReviewProvider) GetTasks() ([]domain.Task, error) {
 			FilePath: filepath.Join(p.Config.MusicFolder, entry.FilePath),
 			Genre1:   entry.PrimaryGenre,
 			Genre2:   entry.SecondaryGenre,
+			BPM:      entry.BPM,
+			Year:     entry.Year,
 		}
 		tasks = append(tasks, task)
 	}
@@ -101,12 +105,23 @@ func (p ManualReviewProvider) SaveState(tasks []domain.Task) error {
 	// Update matching entries in the raw struct.
 	for i, entry := range raw.ManualReview {
 		t, ok := taskMap[entry.FilePath]
-		if !ok || t.Genre1 == "" {
+		if !ok {
 			continue
 		}
-		raw.ManualReview[i].Status = "applied"
-		raw.ManualReview[i].PrimaryGenre = t.Genre1
-		raw.ManualReview[i].SecondaryGenre = t.Genre2
+		// Update genre fields if a genre has been assigned.
+		if t.Genre1 != "" {
+			raw.ManualReview[i].Status = "applied"
+			raw.ManualReview[i].PrimaryGenre = t.Genre1
+			raw.ManualReview[i].SecondaryGenre = t.Genre2
+		}
+		// Update BPM and Year independently — they can be committed
+		// without a genre assignment (Q5 human decision).
+		if t.BPM != "" {
+			raw.ManualReview[i].BPM = t.BPM
+		}
+		if t.Year != "" {
+			raw.ManualReview[i].Year = t.Year
+		}
 	}
 
 	// Marshal back to JSON with indentation for human readability.

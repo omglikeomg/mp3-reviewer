@@ -52,7 +52,7 @@ All of these require the `engine` field to be mockable.
      - `TestSkipToNext_EndOfQueue` — verifies `skipToNext()` is a no-op at the last song.
      - `TestTickMsg_CachesPlaybackState` — verifies that a `TickMsg` updates `m.playbackState` from the mock engine.
 
-5. **Update `agent-specs/architecture-breakdown.md`:**
+5. **Update `agent-development/agent-specs/architecture-breakdown.md`:**
    - Add note that `internal/tui` depends on the `AudioPlayer` interface (not the concrete type) for testability.
 
 6. **Update `README.md`:**
@@ -69,4 +69,5 @@ All of these require the `engine` field to be mockable.
 - [ ] `go build ./...` succeeds with zero errors.
 - [ ] `go test ./internal/tui/... -v` shows all 10 tests passing.
 - [ ] `go vet ./internal/tui/...` exits 0 with no output.
-- [ ] Update `agent-specs/architecture-breakdown.md` to mention the `AudioPlayer` interface.
+- [ ] Update `agent-development/agent-specs/architecture-breakdown.md` to mention the `AudioPlayer` interface.
+- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.

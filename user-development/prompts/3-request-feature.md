@@ -4,11 +4,14 @@
 
 ---
 
-Familiarize yourself with the project context by reading all documents in [@agent-specs](agent-specs):
+Familiarize yourself with the project context by reading the diagrams and all spec documents:
 
-- `agent-specs/agent-instructions.md`
-- `agent-specs/application-overview.md`
-- `agent-specs/architecture-breakdown.md`
+1. **Read all diagrams** in `diagrams/` (`data-structures.mmd`, `software-architecture.mmd`, `ui-state-machine.mmd`, `task-lifecycle.mmd`, `component-data-flow.mmd`) and the `diagrams/FOLDER-STRUCTURE.md` reference to build a visual understanding of the system's current structure, architecture, and UI lifecycle.
+
+2. **Read all spec documents** in `agent-development/agent-specs/`:
+   - `agent-development/agent-specs/agent-instructions.md`
+   - `agent-development/agent-specs/application-overview.md`
+   - `agent-development/agent-specs/architecture-breakdown.md`
 
 Then, review the existing task requests to understand the current scope and numbering:
 
@@ -21,7 +24,7 @@ Using this context, create a **new task request** for the following feature:
 
 ## Rules
 
-1. **Read all `agent-specs/` documents first** — the new request must be consistent with the existing architecture, design patterns, and coding standards.
+1. **Read all diagrams and `agent-development/agent-specs/` documents first** — the new request must be consistent with the existing architecture, design patterns, and coding standards.
 2. **Check existing requests** — look at both `agent-development/pending/` and `agent-development/done/requests/` to understand what tasks already exist. The new request must not duplicate existing work.
 3. **Determine the correct task number** — find the highest-numbered task file across both `pending/` and `done/requests/`, and use the next number in sequence. For example, if `8-reliability.md` is the highest, the new task should be numbered `9`.
 4. **Follow the request template exactly** — use `agent-development/pending/_TEMPLATE-request.md` as your structural guide.

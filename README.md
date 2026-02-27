@@ -11,23 +11,50 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 - **Review Queue** — Reads a JSON file of songs marked for `manual_review` and presents them one at a time.
 - **Immersive Playback** — Songs auto-play on selection. Seek ±30s to find the defining section of the track.
 - **Dual-Tier Genre Tagging** — Assign a Primary Genre (e.g., "Rock") and an optional Secondary Genre (e.g., "Psych-Rock").
-- **Data Enrichment** — Fetch original release year from MusicBrainz and BPM from external APIs.
+- **Data Enrichment** — Fetches the original release year and BPM automatically from MusicBrainz when a song loads. If no BPM is found, it can be calculated via **Tap Tempo** (press `t` to the beat; 8 taps required). Both values can be committed to the ID3 tags with `Ctrl+1` (BPM) and `Ctrl+2` (Year).
 - **Persistence** — Writes changes directly to MP3/FLAC ID3 tags and updates the source JSON to reflect "Applied" status.
 - **Undo Support** — Mis-categorized a song? Press `Ctrl+U` to undo and go back.
 
 ## Architecture
 
 ```
-cmd/reviewer/       — Entry point. Loads config, builds queue, starts Bubble Tea program.
-internal/domain/    — Pure data structures (Task, Config). No dependencies.
-internal/provider/  — JSON parser adapters (TaskProvider interface + SaveState persistence).
-internal/audio/     — Audio engine (Engine struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown.
-internal/tui/       — Bubble Tea TUI: header, progress bar, status bar, genre selection modal, keybinding dispatch.
-internal/metadata/  — ID3 tag write logic (pure Go, bogem/id3v2).
-internal/api/       — External HTTP clients (MusicBrainz, BPM APIs).
-data/               — Holds the manual_review.json queue file.
-config/             — Holds settings.json with app configuration.
+cmd/reviewer/               — Entry point. Loads config, builds queue, starts Bubble Tea program.
+internal/domain/            — Pure data structures (Task, Config). No dependencies.
+internal/provider/          — JSON parser adapters (TaskProvider interface + SaveState persistence).
+internal/audio/             — Audio engine (Engine struct). Handles device init, MP3 decoding, play, seek ±N seconds, pause/resume, and clean shutdown.
+internal/tui/               — Bubble Tea TUI: header, progress bar, status bar, genre selection modal, keybinding dispatch.
+internal/metadata/          — ID3 tag write logic (pure Go, bogem/id3v2).
+internal/api/               — External HTTP clients (MusicBrainz, BPM APIs).
+data/                       — Holds the manual_review.json queue file.
+config/                     — Holds settings.json with app configuration.
+
+diagrams/                   — Mermaid diagrams & references: the primary knowledge base for agents.
+├── README.md               — Diagram conventions, diagram-first rule, maintenance rule.
+├── FOLDER-STRUCTURE.md     — Complete project directory tree and package dependency graph.
+├── data-structures.mmd     — Class diagram of all domain types, fields, and relationships.
+├── software-architecture.mmd — Packages, structs, interfaces, public methods, and call relationships.
+├── ui-state-machine.mmd    — All AppState values, screens/views, and state transitions.
+├── task-lifecycle.mmd      — Review-queue task lifecycle: load → review → tag → persist → advance.
+└── component-data-flow.mmd — MVU pipeline data flow: Cmds, Msgs, component interactions.
+
+user-development/           — Human-facing development assets (prompts, guides).
+├── DEVELOPMENT-GUIDE.md    — Spec-driven workflow documentation.
+└── prompts/                — Reusable prompt templates for humans to start agent conversations.
+
+agent-development/          — Agent-facing pipeline (specs, requests, plans).
+├── agent-specs/            — Project-level specifications (read-only context for agents).
+│   ├── agent-instructions.md
+│   ├── application-overview.md
+│   └── architecture-breakdown.md
+├── pending/                — Task requests waiting to be planned.
+├── plans/                  — Implementation plans waiting for approval.
+├── queued/                 — Approved plans ready for execution.
+└── done/                   — Completed work (archived plans and requests).
 ```
+
+### Diagrams
+
+The `diagrams/` directory contains Mermaid (`.mmd`) diagrams and reference documents that serve as the primary knowledge base for AI agents working on this project. Agents consult these diagrams **before** reading source code to build understanding of the system's data structures, software architecture, UI state machine, task lifecycle, and component data flow. See `diagrams/README.md` for conventions and the diagram-first rule, and `diagrams/FOLDER-STRUCTURE.md` for a quick-orientation project tree.
 
 ### Design Patterns
 
@@ -128,6 +155,9 @@ The first song in the review queue plays automatically on launch. Use the keybin
 | `←` / `→` | Seek backward / forward 30 seconds |
 | `p` | Pause / Resume playback |
 | `Enter` / `Space` | Open genre selection menu (two-step: Primary then Secondary) |
+| `t` | Tap to the beat — calculates BPM (8 taps required; resets on irregular tapping) |
+| `Ctrl+1` | Commit suggested BPM to the MP3's TBPM tag (only active when BPM is ready) |
+| `Ctrl+2` | Commit suggested Year to the MP3's year tag (only active when year is found) |
 | `Esc` | Skip current song and move to next |
 | `Ctrl+U` | Undo last genre assignment |
 | `Ctrl+C` | Quit (cleanly shuts down audio device) |
@@ -145,6 +175,30 @@ After both steps, the app:
 - Automatically advances to the next song in the queue.
 
 Press `Esc` at any point during genre selection to cancel and return to the review screen without making any changes.
+
+## Metadata Enrichment
+
+When a song loads, the app immediately fetches metadata in the background:
+
+### Release Year (MusicBrainz)
+
+The app queries the [MusicBrainz API](https://musicbrainz.org/doc/MusicBrainz_API) to find the **original** release year for the current song (not a remaster date). It searches by Artist and Title, finds the earliest release group's `first-release-date`, and displays the 4-digit year.
+
+- **Yellow** — year found, not yet committed. Press `Ctrl+2` to write it to the ID3 tag.
+- **Green ✓** — year committed to the file's year tag.
+- **Grey italic** — loading or not found.
+
+> **Note:** MusicBrainz requires a descriptive `User-Agent` header. Set `api_keys.musicbrainz_user_agent` in `config/settings.json` to a string like `"MySongReviewer/1.0 ( your@email.com )"`.
+
+### BPM (MusicBrainz + Tap Tempo)
+
+The app first attempts to fetch BPM from MusicBrainz user-contributed tags. Since MusicBrainz rarely has BPM data, the app falls back to **Tap Tempo**: press `t` repeatedly to the beat of the song. After 8 taps, the app calculates the average BPM from the inter-tap intervals.
+
+- Tapping pauses > 3 seconds apart reset the sequence automatically.
+- If tapping is too irregular (any interval deviates > 40% from the average), the sequence resets.
+- The UI shows how many taps remain before a BPM value is calculated.
+- **Yellow** — BPM calculated, not yet committed. Press `Ctrl+1` to write it to the ID3 `TBPM` tag.
+- **Green ✓** — BPM committed to the file.
 
 ## Review JSON Format
 
@@ -170,6 +224,8 @@ The `manual_review.json` file should follow this structure:
 | `status` | Written back by the app after a successful tag write. Value will be `"applied"`. Omit or leave blank for pending songs. |
 | `primary_genre` | Primary genre written by the app after tagging. |
 | `secondary_genre` | Secondary genre written by the app. Empty string (field omitted) if `[NONE]` was selected. |
+| `bpm` | BPM value written by the app after committing with `Ctrl+1`. Omit for songs without BPM. |
+| `year` | Release year written by the app after committing with `Ctrl+2`. Omit for songs without year data. |
 
 After tagging a song the entry will look like:
 
@@ -180,7 +236,9 @@ After tagging a song the entry will look like:
   "confidence": 4,
   "status": "applied",
   "primary_genre": "Rock",
-  "secondary_genre": "Psych-Rock"
+  "secondary_genre": "Psych-Rock",
+  "bpm": "120",
+  "year": "1971"
 }
 ```
 

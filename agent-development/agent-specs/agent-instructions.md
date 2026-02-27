@@ -16,9 +16,28 @@ You are an expert Go Developer specializing in CLI tools and Concurrent Systems.
 - Always update the "Status" field in the source JSON after a successful tag write.
 
 ## Workflow
-1. Read the provided Task Markdown.
-2. Implement the logic.
-3. Update any relevant documentation (e.g., architecture-breakdown.md) if you introduce new packages.
+1. Read the relevant diagrams in `diagrams/` (see `diagrams/README.md` for the full list) and self-assess understanding on a 1–10 scale. If confidence is **9 or above**, proceed. If **below 9**, go to the source code for the specific areas of uncertainty, then re-assess.
+2. Read the provided Task Markdown.
+3. Implement the logic.
+4. Update any relevant documentation (e.g., `agent-development/agent-specs/architecture-breakdown.md`) if you introduce new packages.
+5. Update any relevant diagrams in `diagrams/` to reflect changes made during the task.
+
+## Diagram-First Development
+
+Before writing or modifying any code, agents must follow the **diagram-first** approach:
+
+1. **Read the relevant diagram(s)** in `diagrams/` — this includes `data-structures.mmd`, `software-architecture.mmd`, `ui-state-machine.mmd`, `task-lifecycle.mmd`, and `component-data-flow.mmd`. Focus on the diagrams most relevant to the task at hand, but scan all of them for cross-cutting concerns. Also consult `diagrams/FOLDER-STRUCTURE.md` for a quick orientation on project layout.
+2. **Self-assess understanding** on a scale of 1–10. Rate your confidence in understanding the area of the codebase you are about to work on, based solely on the diagrams.
+   - **9 or above:** Proceed with the task using diagram knowledge. You have sufficient understanding.
+   - **Below 9:** Go to the source code for the specific areas where your understanding is lacking. Read only what is necessary to close the gap, then re-assess.
+3. **After completing a task**, update any diagram(s) that were affected by the changes. This includes:
+   - Adding new types, fields, methods, or relationships to `data-structures.mmd`.
+   - Adding new packages, interfaces, public functions, or dependency arrows to `software-architecture.mmd`.
+   - Adding new states or screen transitions to `ui-state-machine.mmd`.
+   - Adding new task-lifecycle stages or data-flow steps to `task-lifecycle.mmd`.
+   - Adding new tea.Cmd/tea.Msg flows or component interactions to `component-data-flow.mmd`.
+   - Updating `diagrams/FOLDER-STRUCTURE.md` if new packages or top-level directories were introduced.
+4. **Diagram updates are mandatory deliverables** — they are as important as code changes. A task is not complete until the diagrams accurately reflect the current state of the code.
 
 ## TUI Structure & Best Practices
 

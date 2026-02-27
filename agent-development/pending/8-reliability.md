@@ -16,5 +16,6 @@ Prevent data loss and handle files that don't play or tags that won't write.
 ## Agent Checklist
 - [ ] Implement atomic file saving for the JSON.
 - [ ] Add error "Toasts" or status messages in the TUI footer.
-- [ ] Perform a final sweep of `architecture-breakdown.md` to ensure it matches the final implementation.
+- [ ] Perform a final sweep of `agent-development/agent-specs/architecture-breakdown.md` to ensure it matches the final implementation.
 - [ ] Update `README.md` with latest considerations.
+- [ ] Update relevant diagrams in `diagrams/` to reflect any structural or behavioral changes.
