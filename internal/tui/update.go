@@ -273,7 +273,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		path := m.queue.Tasks[m.queue.CurrentIndex].FilePath
-		return m, writeBPMCmd(path, m.enrichBPMValue)
+		return m, writeBPMCmd(m.engine, path, m.enrichBPMValue)
 
 	// ── Commit Year (Ctrl+2) ──────────────────────────────────────────────────
 	case "ctrl+2":
@@ -285,7 +285,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		path := m.queue.Tasks[m.queue.CurrentIndex].FilePath
-		return m, writeYearCmd(path, m.enrichYearValue)
+		return m, writeYearCmd(m.engine, path, m.enrichYearValue)
 
 	// ── Tap Tempo (t) ─────────────────────────────────────────────────────────
 	case "t":
@@ -420,7 +420,7 @@ func (m Model) confirmGenreSelection() (tea.Model, tea.Cmd) {
 	}
 	path := m.queue.Tasks[m.queue.CurrentIndex].FilePath
 
-	return m, writeTagsCmd(path, m.selectedPrimary, secondary)
+	return m, writeTagsCmd(m.engine, path, m.selectedPrimary, secondary)
 }
 
 // skipToNext advances the queue to the next task, starts playing it, and

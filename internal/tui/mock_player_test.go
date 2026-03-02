@@ -19,6 +19,7 @@ type mockPlayer struct {
 	playCalled  []string        // Paths passed to Play, in order.
 	seekDeltas  []time.Duration // Deltas passed to Seek, in order.
 	toggleCount int             // Number of times TogglePause was called.
+	stopCount   int             // Number of times Stop was called.
 	closed      bool            // True if Close was called at least once.
 }
 
@@ -38,6 +39,10 @@ func (m *mockPlayer) TogglePause() {
 
 func (m *mockPlayer) GetState() audio.PlaybackState {
 	return m.state
+}
+
+func (m *mockPlayer) Stop() {
+	m.stopCount++
 }
 
 func (m *mockPlayer) Close() {

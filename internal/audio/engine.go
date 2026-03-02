@@ -276,6 +276,17 @@ func (e *Engine) GetState() PlaybackState {
 	}
 }
 
+// Stop halts playback and releases the current file handle without closing
+// the speaker device. Safe to call when nothing is playing (all fields nil).
+// Use this before writing ID3 tags to the currently-playing file on Windows,
+// where an open file handle blocks os.Rename (the rename that bogem/id3v2
+// performs internally during Save).
+func (e *Engine) Stop() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.stopCurrent()
+}
+
 // Close stops all playback, releases the audio file handle, and closes the
 // speaker device. It should be called exactly once when the application exits
 // (e.g., in the Bubble Tea shutdown hook).

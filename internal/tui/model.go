@@ -176,6 +176,7 @@ type AudioPlayer interface {
 	Seek(delta time.Duration) error
 	TogglePause()
 	GetState() audio.PlaybackState
+	Stop()
 	Close()
 }
 
@@ -406,8 +407,9 @@ func playCmd(engine AudioPlayer, path string) tea.Cmd {
 }
 
 // writeTagsCmd returns a Bubble Tea command that calls metadata.WriteTags.
-func writeTagsCmd(path, primary, secondary string) tea.Cmd {
+func writeTagsCmd(engine AudioPlayer, path, primary, secondary string) tea.Cmd {
 	return func() tea.Msg {
+		engine.Stop() // release file handle before rename (required on Windows)
 		err := metadata.WriteTags(path, primary, secondary)
 		return TagWrittenMsg{Primary: primary, Secondary: secondary, Err: err}
 	}
@@ -442,8 +444,9 @@ func fetchBPMCmd(artist, title, userAgent string) tea.Cmd {
 
 // writeBPMCmd returns a Bubble Tea command that calls metadata.WriteBPM on a
 // background goroutine and returns the result as a BPMWrittenMsg.
-func writeBPMCmd(path, bpm string) tea.Cmd {
+func writeBPMCmd(engine AudioPlayer, path, bpm string) tea.Cmd {
 	return func() tea.Msg {
+		engine.Stop() // release file handle before rename (required on Windows)
 		err := metadata.WriteBPM(path, bpm)
 		return BPMWrittenMsg{BPM: bpm, Err: err}
 	}
@@ -451,8 +454,9 @@ func writeBPMCmd(path, bpm string) tea.Cmd {
 
 // writeYearCmd returns a Bubble Tea command that calls metadata.WriteYear on a
 // background goroutine and returns the result as a YearWrittenMsg.
-func writeYearCmd(path, year string) tea.Cmd {
+func writeYearCmd(engine AudioPlayer, path, year string) tea.Cmd {
 	return func() tea.Msg {
+		engine.Stop() // release file handle before rename (required on Windows)
 		err := metadata.WriteYear(path, year)
 		return YearWrittenMsg{Year: year, Err: err}
 	}
