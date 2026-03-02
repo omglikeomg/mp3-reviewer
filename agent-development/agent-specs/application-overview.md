@@ -12,7 +12,7 @@ A high-performance Go-based CLI tool for music enthusiasts to manually categoriz
 4. **Data Enrichment:**
    - **MusicBrainz Integration:** Fetch the *original* release date (not the remaster date).
    - **BPM Fetching:** Pulling tempo data from external APIs.
-5. **Persistence:** Changes are written directly to the MP3/FLAC ID3 tags and the source JSON is updated to reflect the "Applied" status.
+5. **Persistence:** Changes are written directly to the MP3 ID3 tags and the source JSON is updated to reflect the "Applied" status.
 
 ## Key UX Goals
 - **No Mouse Required:** 100% keyboard-driven.

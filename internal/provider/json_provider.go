@@ -58,6 +58,11 @@ func (p ManualReviewProvider) GetTasks() ([]domain.Task, error) {
 
 	tasks := make([]domain.Task, 0, len(raw.ManualReview))
 	for _, entry := range raw.ManualReview {
+		// When skip_applied is enabled, silently omit entries already tagged.
+		if p.Config.SkipApplied && strings.EqualFold(entry.Status, "applied") {
+			continue
+		}
+
 		absPath := filepath.Join(p.Config.MusicFolder, entry.FilePath)
 
 		// Read Title and Artist from the file's ID3 tags. Non-fatal: if the file

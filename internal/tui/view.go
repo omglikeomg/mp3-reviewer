@@ -102,6 +102,8 @@ func (m Model) View() string {
 		return m.viewGenreModal()
 	case StateSettings:
 		return m.viewSettings()
+	case StateQueueComplete:
+		return m.viewQueueComplete()
 	default:
 		return m.viewReviewing()
 	}
@@ -299,4 +301,28 @@ func (m Model) viewSettings() string {
 		hints
 
 	return "\n" + styleModal.Render(inner) + "\n"
+}
+
+// viewQueueComplete renders the end-of-queue completion screen.
+// Displayed when the user skips or tags the last song in the queue.
+// No progress bar, no enrichment panel, no audio. Only Ctrl+U and Ctrl+C are active.
+func (m Model) viewQueueComplete() string {
+	total := len(m.queue.Tasks)
+	heading := styleHeader.Render(
+		fmt.Sprintf("  ✓  Queue complete — %d song%s reviewed.", total, pluralS(total)),
+	)
+
+	hints := "  " + hintStr("Ctrl+U", "go back") +
+		"      " + hintStr("Ctrl+C", "quit")
+
+	return "\n" + heading + "\n\n" + styleStatus.Render(hints) + "\n"
+}
+
+// pluralS returns "s" if n != 1, otherwise "". Used for grammatically correct
+// pluralisation in the queue complete heading (e.g. "1 song" vs "2 songs").
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }

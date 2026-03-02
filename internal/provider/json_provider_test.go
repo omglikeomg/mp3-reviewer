@@ -332,3 +332,70 @@ func TestSaveState_OriginalFilePreservedOnWriteError(t *testing.T) {
 		t.Errorf("original file was modified by a failing SaveState:\ngot:  %q\nwant: %q", string(got), originalJSON)
 	}
 }
+
+// TestGetTasks_SkipApplied verifies that when Config.SkipApplied is true,
+// GetTasks omits entries whose status is "applied" from the returned slice.
+// When SkipApplied is false (the default), all entries are returned regardless
+// of their status.
+func TestGetTasks_SkipApplied(t *testing.T) {
+	const sampleJSON = `{
+		"manual_review": [
+			{
+				"filepath": "Artist/Song1.mp3",
+				"reason": "Uncertain genre",
+				"confidence": 3,
+				"status": "applied",
+				"primary_genre": "Rock"
+			},
+			{
+				"filepath": "Artist/Song2.mp3",
+				"reason": "Uncertain genre",
+				"confidence": 3
+			}
+		]
+	}`
+
+	dir := t.TempDir()
+	jsonPath := filepath.Join(dir, "manual_review.json")
+	if err := os.WriteFile(jsonPath, []byte(sampleJSON), 0644); err != nil {
+		t.Fatalf("setup: writing temp JSON file: %v", err)
+	}
+
+	t.Run("SkipApplied=true omits applied entries", func(t *testing.T) {
+		cfg := domain.AppConfig{
+			MusicFolder: "/test/music",
+			JsonPath:    jsonPath,
+			SkipApplied: true,
+		}
+		p := ManualReviewProvider{Config: cfg}
+
+		tasks, err := p.GetTasks()
+		if err != nil {
+			t.Fatalf("GetTasks() returned unexpected error: %v", err)
+		}
+		if len(tasks) != 1 {
+			t.Fatalf("expected 1 task (applied entry skipped), got %d", len(tasks))
+		}
+		want := filepath.Join("/test/music", "Artist/Song2.mp3")
+		if tasks[0].FilePath != want {
+			t.Errorf("tasks[0].FilePath = %q, want %q", tasks[0].FilePath, want)
+		}
+	})
+
+	t.Run("SkipApplied=false returns all entries", func(t *testing.T) {
+		cfg := domain.AppConfig{
+			MusicFolder: "/test/music",
+			JsonPath:    jsonPath,
+			SkipApplied: false,
+		}
+		p := ManualReviewProvider{Config: cfg}
+
+		tasks, err := p.GetTasks()
+		if err != nil {
+			t.Fatalf("GetTasks() returned unexpected error: %v", err)
+		}
+		if len(tasks) != 2 {
+			t.Fatalf("expected 2 tasks (all entries returned), got %d", len(tasks))
+		}
+	})
+}

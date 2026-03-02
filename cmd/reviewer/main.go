@@ -13,7 +13,56 @@ import (
 	"song-reviewer/internal/tui"
 )
 
+var version = "dev"
+
+const helpText = `song-reviewer — interactively review and tag MP3 files from a manual-review queue.
+
+Usage: song-reviewer [--help] [--version]
+
+Configuration:
+  Copy settings.example.json to config/settings.json and set your paths before first run.
+  Key fields:
+    music_folder          Absolute path to your music library root.
+    review_json_path      Path to the JSON file of songs to review.
+    genres                List of genre labels available for tagging.
+    seek_delta_seconds    Seek step in seconds (default: 30).
+    skip_applied          Omit already-tagged songs from the queue (default: false).
+    api_keys.musicbrainz_user_agent
+                          Required MusicBrainz User-Agent string.
+
+  Example: config/settings.json  (template: settings.example.json)
+
+Keybindings:
+  ← / →         Seek backward / forward (seek_delta_seconds)
+  p             Pause / Resume playback
+  Enter / Space Open genre selection menu
+  t             Tap to the beat — calculates BPM (8 taps required)
+  Ctrl+1        Commit BPM to TBPM tag
+  Ctrl+2        Commit Year to year tag
+  Esc           Skip current song
+  Ctrl+U        Undo last genre assignment
+  Ctrl+O        Open Settings overlay
+  Ctrl+C        Quit
+
+For full documentation see README.md.
+`
+
 func main() {
+	// ── CLI flags ─────────────────────────────────────────────────────────────
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--help", "-h":
+			fmt.Print(helpText)
+			os.Exit(0)
+		case "--version", "-v":
+			fmt.Println("song-reviewer", version)
+			os.Exit(0)
+		default:
+			fmt.Fprintf(os.Stderr, "song-reviewer: unknown flag: %s\nRun 'song-reviewer --help' for usage.\n", os.Args[1])
+			os.Exit(1)
+		}
+	}
+
 	// ── Load configuration ────────────────────────────────────────────────────
 	cfg, err := loadConfig("config/settings.json")
 	if err != nil {

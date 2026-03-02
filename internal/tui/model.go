@@ -34,6 +34,11 @@ const (
 	// StateSettings is shown when the user presses Ctrl-O to open the Settings overlay.
 	// It presents two textinput fields for MusicFolder and JsonPath.
 	StateSettings
+
+	// StateQueueComplete is shown when the user skips or tags the last song
+	// in the queue. Displays a summary and hints for Ctrl+U (go back) and
+	// Ctrl+C (quit). No audio plays in this state.
+	StateQueueComplete
 )
 
 // genreStep tracks which selection step the genre modal is on.

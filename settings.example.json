@@ -14,6 +14,7 @@
     "House"
   ],
   "seek_delta_seconds": 30,
+  "skip_applied": false,
   "api_keys": {
     "musicbrainz_user_agent": "MySongReviewer/1.0.0 ( contact@example.com )"
   }

@@ -12,7 +12,7 @@ Song Reviewer bridges the gap between automated genre-classification scripts (wh
 - **Immersive Playback** — Songs auto-play on selection. Seek ±30s to find the defining section of the track.
 - **Dual-Tier Genre Tagging** — Assign a Primary Genre (e.g., "Rock") and an optional Secondary Genre (e.g., "Psych-Rock").
 - **Data Enrichment** — Fetches the original release year and BPM automatically from MusicBrainz when a song loads. If no BPM is found, it can be calculated via **Tap Tempo** (press `t` to the beat; 8 taps required). Both values can be committed to the ID3 tags with `Ctrl+1` (BPM) and `Ctrl+2` (Year).
-- **Persistence** — Writes changes directly to MP3/FLAC ID3 tags and updates the source JSON to reflect "Applied" status. JSON updates use an atomic write strategy (temp file → fsync → rename) so the review queue is never corrupted by an interrupted save.
+- **Persistence** — Writes changes directly to MP3 ID3 tags and updates the source JSON to reflect "Applied" status. JSON updates use an atomic write strategy (temp file → fsync → rename) so the review queue is never corrupted by an interrupted save.
 - **Undo Support** — Mis-categorized a song? Press `Ctrl+U` to undo and go back.
 
 ## Architecture
@@ -65,6 +65,31 @@ go build -o song-reviewer ./cmd/reviewer
 go install ./cmd/reviewer
 ```
 
+## Development
+
+With the `Makefile` at the project root you can use the following commands instead of raw `go` commands:
+
+```bash
+# Build the binary (output: ./song-reviewer)
+make build
+
+# Run the full test suite
+make test
+
+# Install into $GOPATH/bin
+make install
+
+# Run linter (go vet; also staticcheck if installed)
+make lint
+```
+
+To embed a version string in the binary at build time:
+
+```bash
+make build VERSION=1.2.3
+./song-reviewer --version   # prints: song-reviewer 1.2.3
+```
+
 ## Configuration
 
 This project uses **example files** as git-tracked templates. The actual runtime configuration files are gitignored so your local paths and API keys stay out of version control.
@@ -91,6 +116,7 @@ Edit `config/settings.json` with your local values:
   "review_json_path": "./data/manual_review.json",
   "genres": ["Rock", "Jazz", "Blues", "Electronic", "Hip-Hop", "Classical", "Folk", "Psych-Rock", "Techno", "House"],
   "seek_delta_seconds": 30,
+  "skip_applied": false,
   "api_keys": {
     "musicbrainz_user_agent": "YourAppName/1.0.0 ( your@email.com )"
   }
@@ -103,6 +129,7 @@ Edit `config/settings.json` with your local values:
 | `review_json_path` | Path to the JSON file containing songs flagged for manual review. |
 | `genres` | List of genre labels available for tagging. Customize to match your taxonomy. |
 | `seek_delta_seconds` | Seek step in seconds for the `←` / `→` keys. Defaults to `30` if omitted. |
+| `skip_applied` | When `true`, songs already tagged (`status: "applied"`) are silently omitted from the queue on load. Defaults to `false` — all songs are shown. |
 | `api_keys.musicbrainz_user_agent` | Required by MusicBrainz API. Must include your app name and contact email. |
 
 ### File Convention

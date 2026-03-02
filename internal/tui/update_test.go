@@ -207,8 +207,9 @@ func TestHandleKey_CtrlU_WithHistory(t *testing.T) {
 
 // ── skipToNext end-of-queue test ──────────────────────────────────────────────
 
-// TestSkipToNext_EndOfQueue verifies that skipToNext is a no-op when
-// CurrentIndex is already at the last task.
+// TestSkipToNext_EndOfQueue verifies that skipToNext transitions to
+// StateQueueComplete when CurrentIndex is already at the last task,
+// and that the current task is pushed onto History so Ctrl+U can rewind.
 func TestSkipToNext_EndOfQueue(t *testing.T) {
 	mp := &mockPlayer{}
 	m := newTestModel(mp)
@@ -219,11 +220,21 @@ func TestSkipToNext_EndOfQueue(t *testing.T) {
 	result, cmd := m.skipToNext()
 	resultModel := result.(Model)
 
+	// CurrentIndex must not advance past the end.
 	if resultModel.queue.CurrentIndex != 1 {
 		t.Errorf("CurrentIndex = %d, want 1 (no advance past end)", resultModel.queue.CurrentIndex)
 	}
+	// State must transition to StateQueueComplete.
+	if resultModel.state != StateQueueComplete {
+		t.Errorf("state = %v, want StateQueueComplete", resultModel.state)
+	}
+	// The last task must be pushed onto History for Ctrl+U to work.
+	if len(resultModel.queue.History) != 1 {
+		t.Errorf("History length = %d, want 1 (last task pushed for undo)", len(resultModel.queue.History))
+	}
+	// No play command should be issued.
 	if !isNilCmd(cmd) {
-		t.Error("expected nil command when at end of queue, got non-nil")
+		t.Error("expected nil command when transitioning to StateQueueComplete, got non-nil")
 	}
 }
 
@@ -252,5 +263,64 @@ func TestTickMsg_CachesPlaybackState(t *testing.T) {
 	}
 	if got.Position != wantState.Position {
 		t.Errorf("playbackState.Position = %q, want %q", got.Position, wantState.Position)
+	}
+}
+
+// ── StateQueueComplete key handling tests ─────────────────────────────────────
+
+// TestHandleKey_QueueComplete_CtrlU verifies that pressing Ctrl+U while in
+// StateQueueComplete calls undoLast, transitioning back to StateReviewing
+// and issuing a non-nil command (playCmd for the previous song).
+func TestHandleKey_QueueComplete_CtrlU(t *testing.T) {
+	mp := &mockPlayer{}
+	m := newTestModel(mp)
+
+	// Simulate: we just reached end-of-queue from index 1, so History has task[1].
+	m.queue.CurrentIndex = 1
+	m.queue.History = []domain.Task{m.queue.Tasks[1]}
+	m.state = StateQueueComplete
+
+	result, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlU})
+	resultModel := result.(Model)
+
+	if resultModel.state != StateReviewing {
+		t.Errorf("after Ctrl+U from StateQueueComplete: state = %v, want StateReviewing", resultModel.state)
+	}
+	if resultModel.queue.CurrentIndex != 0 {
+		t.Errorf("CurrentIndex = %d, want 0 after undo", resultModel.queue.CurrentIndex)
+	}
+	if isNilCmd(cmd) {
+		t.Error("expected a non-nil command (playCmd) after undo from queue complete, got nil")
+	}
+}
+
+// TestHandleKey_QueueComplete_OtherKeysAreNoOps verifies that keys other than
+// ctrl+c and ctrl+u are no-ops while in StateQueueComplete.
+func TestHandleKey_QueueComplete_OtherKeysAreNoOps(t *testing.T) {
+	mp := &mockPlayer{}
+	m := newTestModel(mp)
+	m.state = StateQueueComplete
+	m.queue.CurrentIndex = 1
+
+	noOpKeys := []tea.KeyMsg{
+		{Type: tea.KeyEscape},
+		{Type: tea.KeyEnter},
+		{Type: tea.KeyRunes, Runes: []rune("p")},
+		{Type: tea.KeyLeft},
+		{Type: tea.KeyRight},
+	}
+
+	for _, key := range noOpKeys {
+		result, cmd := m.handleKey(key)
+		resultModel := result.(Model)
+		if resultModel.state != StateQueueComplete {
+			t.Errorf("key %q: state = %v, want StateQueueComplete (should be no-op)", key.String(), resultModel.state)
+		}
+		if resultModel.queue.CurrentIndex != 1 {
+			t.Errorf("key %q: CurrentIndex = %d, want 1 (should be no-op)", key.String(), resultModel.queue.CurrentIndex)
+		}
+		if !isNilCmd(cmd) {
+			t.Errorf("key %q: expected nil command (no-op), got non-nil", key.String())
+		}
 	}
 }

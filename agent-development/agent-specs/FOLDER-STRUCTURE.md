@@ -2,7 +2,7 @@
 
 This file provides agents with an at-a-glance view of the entire project layout so they can orient themselves without scanning the filesystem.
 
-> **Last updated:** Task 9 — AudioPlayer interface introduced in tui; TUI unit tests added.
+> **Last updated:** Task 11 — CLI flags (--help/--version); Makefile added; FLAC references corrected to MP3-only.
 > **Maintenance rule:** If a task adds or removes top-level directories, packages, or significant files, update `agent-development/agent-specs/FOLDER-STRUCTURE.md` as part of the task deliverables.
 
 ---
@@ -31,7 +31,10 @@ mp3-reviewer/
 │   │   ├── mock_player_test.go     ← Test-only mockPlayer implementing AudioPlayer
 │   │   └── update_test.go          ← Unit tests for handleKey, skipToNext, undoLast, TickMsg
 │   ├── metadata/
-│   │   └── writer.go               ← WriteTags, WriteBPM, WriteYear (ID3v2 tag writing)
+│   │   ├── writer.go               ← WriteTags, WriteBPM, WriteYear, ReadTags (ID3v2 tag writing)
+│   │   ├── writer_test.go          ← Integration tests for all four writer functions
+│   │   └── testdata/
+│   │       └── fixture.mp3         ← Committed binary fixture: 1-second silent MP3 with ID3v2 header
 │   └── api/
 │       ├── musicbrainz.go          ← FetchYear, FetchBPM (MusicBrainz JSON API client)
 │       └── musicbrainz_test.go     ← Unit tests with httptest mock server
@@ -64,6 +67,7 @@ mp3-reviewer/
 │       ├── plans/                   ← Executed plans (archive)
 │       └── requests/                ← Fulfilled requests (archive)
 │
+├── Makefile                         ← Build targets: build, test, install, lint
 ├── .gitignore
 ├── go.mod
 ├── go.sum

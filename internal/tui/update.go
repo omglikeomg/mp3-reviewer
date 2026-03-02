@@ -213,6 +213,22 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, listCmd
 	}
 
+	// ── Queue Complete state ──────────────────────────────────────────────────
+	if m.state == StateQueueComplete {
+		switch msg.String() {
+		case "ctrl+c":
+			// Flush any pending JSON enrichment data before quitting.
+			_ = m.providerRef.SaveState(m.queue.Tasks)
+			m.engine.Close()
+			return m, tea.Quit
+		case "ctrl+u":
+			m.state = StateReviewing
+			return m.undoLast()
+		}
+		// All other keys are no-ops in the completion screen.
+		return m, nil
+	}
+
 	// ── StateReviewing — full keybinding set ──────────────────────────────────
 	switch msg.String() {
 
@@ -409,14 +425,22 @@ func (m Model) confirmGenreSelection() (tea.Model, tea.Cmd) {
 
 // skipToNext advances the queue to the next task, starts playing it, and
 // resets enrichment state. Fires fetchYearCmd and fetchBPMCmd for the new song
-// if artist/title are available. If no next task exists (end of queue), it is
-// a no-op.
+// if artist/title are available. If no next task exists (end of queue),
+// transitions to StateQueueComplete so the user sees a completion screen.
 func (m Model) skipToNext() (tea.Model, tea.Cmd) {
 	nextIndex := m.queue.CurrentIndex + 1
 	if nextIndex >= len(m.queue.Tasks) {
+		// Push the current song onto History so Ctrl+U can rewind from
+		// the completion screen back to the last song.
+		if m.queue.CurrentIndex >= 0 && m.queue.CurrentIndex < len(m.queue.Tasks) {
+			m.queue.History = append(m.queue.History, m.queue.Tasks[m.queue.CurrentIndex])
+		}
+		m.state = StateQueueComplete
 		return m, nil
 	}
 
+	// NOTE: The history-append below covers the normal (non-end-of-queue) path.
+	// Do NOT add another append here; the end-of-queue path above handles its own.
 	if m.queue.CurrentIndex >= 0 && m.queue.CurrentIndex < len(m.queue.Tasks) {
 		m.queue.History = append(m.queue.History, m.queue.Tasks[m.queue.CurrentIndex])
 	}

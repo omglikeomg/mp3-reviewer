@@ -18,6 +18,7 @@ type AppConfig struct {
 	JsonPath         string   `json:"review_json_path"`
 	GenreList        []string `json:"genres"`
 	SeekDeltaSeconds int      `json:"seek_delta_seconds"` // Seek step for ← / → keys. Defaults to 30 if 0 or omitted.
+	SkipApplied      bool     `json:"skip_applied"`       // When true, GetTasks omits entries with status "applied".
 	ApiKeys          struct {
 		MusicBrainzUserAgent string `json:"musicbrainz_user_agent"`
 	} `json:"api_keys"`
